@@ -1,0 +1,208 @@
+---
+name: 'step-03-report'
+description: 'Generate final deployment report with summary and next steps'
+
+# Path Definitions
+workflow_path: '{project-root}/_bmad/bmm/workflows/4-implementation/ship'
+
+# File References
+thisStepFile: '{workflow_path}/steps/step-03-report.md'
+workflowFile: '{workflow_path}/workflow.md'
+---
+
+# Step 3: Deployment Report
+
+## STEP GOAL:
+
+To generate a comprehensive final report summarizing the deployment outcome, including version deployed, destination, timing, and actionable next steps.
+
+## MANDATORY EXECUTION RULES (READ FIRST):
+
+### Universal Rules:
+
+- 📖 CRITICAL: Read the complete step file before taking any action
+- 🔄 CRITICAL: This is the final step - no next step to load
+- 📊 COMPILE RESULTS: Generate comprehensive report from execution context
+- ✅ COMPLETE: End workflow gracefully with clear summary
+
+### Role Reinforcement:
+
+- ✅ You are a release reporter presenting deployment results
+- ✅ If you already have been given a name, communication_style and persona, continue to use those while playing this new role
+- ✅ This is the final reporting phase - compile and present all results
+- ✅ You bring clear reporting and actionable guidance, user needs to know what happened
+- ✅ Maintain clear and informative tone throughout
+
+### Step-Specific Rules:
+
+- 🎯 Generate comprehensive deployment summary
+- 🚫 FORBIDDEN to skip any report sections
+- 💬 Approach: Present results clearly with actionable next steps
+- 📋 Show version and destination prominently
+
+## EXECUTION PROTOCOLS:
+
+- 🎯 Compile all deployment results from context
+- 💾 Generate formatted report with all sections
+- 📖 Provide appropriate next steps based on outcome
+- 🚫 FORBIDDEN to end without clear status indication
+
+## CONTEXT BOUNDARIES:
+
+- Available context: Deployment results from Step 2 (success/failure, version, timing, outputs)
+- Focus: Clear, comprehensive reporting
+- Limits: Report only - no additional commands to execute
+- Dependencies: Successful completion of Step 2 execution
+
+## Sequence of Instructions (Do not deviate, skip, or optimize)
+
+### 1. Compile Final Results
+
+Gather from context:
+- Deployment type (npm/docker/github-release/custom)
+- Commands executed and their status
+- Success/failure status
+- Version (if bumped)
+- Duration (startTime to now)
+- Any error messages
+
+### 2. Generate Report Header
+
+Display:
+```
+═══════════════════════════════════════════════════════════════
+                     DEPLOYMENT REPORT
+═══════════════════════════════════════════════════════════════
+```
+
+### 3. Display Deployment Summary
+
+"**Deployment Details:**
+
+| Property | Value |
+|----------|-------|
+| Type | [npm/docker/github-release/custom] |
+| Version | [version or N/A] |
+| Duration | [time elapsed] |
+| Status | ✅ Success / ❌ Failed / ⚠️ Partial |"
+
+### 4. Display Step Results
+
+"**Execution Steps:**
+
+| Step | Status | Details |
+|------|--------|---------|
+| Pre-Checks | ✅ | [count] passed |
+| Version Bump | ✅/❌/⏭️ | [version or 'skipped' or error] |
+| Build | ✅/❌/⏭️ | [status or 'skipped'] |
+| Publish | ✅/❌ | [destination] |
+| Post-Publish | ✅/❌/⏭️ | [count] commands or 'skipped' |"
+
+### 5. Display Final Status
+
+#### IF deployment succeeded:
+
+```
+═══════════════════════════════════════════════════════════════
+  ✅ DEPLOYMENT SUCCESSFUL
+═══════════════════════════════════════════════════════════════
+
+Version [version] has been deployed successfully!
+
+Destination: [where it was published]
+Time: [duration]
+```
+
+#### IF deployment failed:
+
+```
+═══════════════════════════════════════════════════════════════
+  ❌ DEPLOYMENT FAILED
+═══════════════════════════════════════════════════════════════
+
+Failed at: [step name]
+Error: [brief error summary]
+
+Completed steps:
+- [list of completed steps]
+
+To retry:
+1. Fix the issue: [suggestion based on error]
+2. Run `/ship` again
+```
+
+#### IF partial success (post-publish failed):
+
+```
+═══════════════════════════════════════════════════════════════
+  ⚠️ DEPLOYMENT PARTIALLY SUCCESSFUL
+═══════════════════════════════════════════════════════════════
+
+Version [version] was published, but post-publish steps failed.
+
+Published: ✅
+Post-Publish: ❌
+
+You may need to run post-publish commands manually:
+- [list of failed post-publish commands]
+```
+
+### 6. Provide Next Steps
+
+#### IF success:
+"**Next Steps:**
+- Verify deployment at [destination URL if known]
+- Monitor for any issues
+- Update any dependent systems
+- Consider tagging release in git if not automated"
+
+#### IF failure:
+"**Next Steps:**
+- Review the error above
+- Fix the underlying issue
+- Run `/ship` to retry deployment"
+
+#### IF partial:
+"**Next Steps:**
+- Verify the published package/release
+- Run failed post-publish commands manually if needed
+- Consider fixing post-publish config for next time"
+
+### 7. End Workflow
+
+Display:
+```
+═══════════════════════════════════════════════════════════════
+```
+
+"**Workflow Complete**
+
+Thank you for using the ship workflow. Run `/ship` anytime to deploy again."
+
+This is the final step. Workflow ends here.
+
+## CRITICAL STEP COMPLETION NOTE
+
+This is the final step in the workflow. After displaying the report, the workflow is complete. No further steps to load.
+
+---
+
+## 🚨 SYSTEM SUCCESS/FAILURE METRICS
+
+### ✅ SUCCESS:
+
+- Clear, comprehensive report generated
+- Version and destination prominently shown
+- All executed steps summarized with status
+- Appropriate next steps provided based on outcome
+- Workflow ended gracefully
+
+### ❌ SYSTEM FAILURE:
+
+- Incomplete report missing sections
+- Missing version or destination information
+- No next steps provided
+- Unclear final status
+- Abrupt ending without summary
+
+**Master Rule:** Skipping steps, optimizing sequences, or not following exact instructions is FORBIDDEN and constitutes SYSTEM FAILURE.

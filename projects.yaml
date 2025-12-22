@@ -1,0 +1,54 @@
+# BMAD Hub - Project Registry
+# This file lists all projects that should receive BMAD system updates
+#
+# Each project entry requires:
+#   - name: The project name (replaces "insert-project-name-here" in config)
+#   - path: Absolute path to the project root directory
+#   - enabled: Whether to include this project in sync operations (true/false)
+#
+# Optional fields:
+#   - description: Brief description of the project
+#   - ides: List of IDEs to sync (defaults to all: claude-code, cursor, gemini)
+#          If specified, only those IDE folders will be copied
+#
+# Usage:
+#   ./sync.sh           # Sync all enabled projects
+#   ./sync.sh --dry-run # Preview changes without applying
+#   ./sync.sh <name>    # Sync a specific project by name
+
+projects:
+  # Example project entry:
+  # - name: my-awesome-app
+  #   path: /Users/A1E6E98/Developer/Projects/my-awesome-app
+  #   enabled: true
+  #   description: My main application project
+  #   ides:
+  #     - claude-code
+  #     - cursor
+
+  # Add your projects below:
+  - name: project-rulebook-android
+    path: /Users/A1E6E98/Developer/Projects/project-rulebook/project-rulebook-android
+    enabled: true
+    description: Project Rulebook Android app (alpha.15 -> alpha.19 migration)
+
+  - name: example-project
+    path: /Users/A1E6E98/Developer/Projects/example-project
+    enabled: false
+    description: Example entry - update path and enable when ready
+
+# Hub configuration
+hub:
+  # Files/folders to exclude from sync (in addition to hub-specific files)
+  exclude:
+    - projects.yaml
+    - sync.sh
+    - README.md
+    - .git
+    - .DS_Store
+
+  # Whether to create backup before overwriting existing BMAD installation
+  backup_existing: true
+
+  # Backup directory name pattern (relative to project root)
+  backup_dir: _bmad-backup
