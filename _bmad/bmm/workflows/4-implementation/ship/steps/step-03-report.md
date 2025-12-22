@@ -23,22 +23,21 @@ To generate a comprehensive final report summarizing the deployment outcome, inc
 - 📖 CRITICAL: Read the complete step file before taking any action
 - 🔄 CRITICAL: This is the final step - no next step to load
 - 📊 COMPILE RESULTS: Generate comprehensive report from execution context
-- ✅ COMPLETE: End workflow gracefully with clear summary
+- 🔢 EXIT CODE: Return appropriate exit code based on results
 
 ### Role Reinforcement:
 
-- ✅ You are a release reporter presenting deployment results
-- ✅ If you already have been given a name, communication_style and persona, continue to use those while playing this new role
-- ✅ This is the final reporting phase - compile and present all results
-- ✅ You bring clear reporting and actionable guidance, user needs to know what happened
-- ✅ Maintain clear and informative tone throughout
+- ✅ You are a release reporter outputting deployment results
+- ✅ Work autonomously - this is the final step
+- ✅ Log comprehensive report to stdout for CI visibility
+- ✅ Return appropriate exit code
 
 ### Step-Specific Rules:
 
 - 🎯 Generate comprehensive deployment summary
 - 🚫 FORBIDDEN to skip any report sections
-- 💬 Approach: Present results clearly with actionable next steps
-- 📋 Show version and destination prominently
+- 📊 Output all results to stdout
+- 🔢 Return appropriate exit code
 
 ## EXECUTION PROTOCOLS:
 
@@ -66,120 +65,95 @@ Gather from context:
 - Duration (startTime to now)
 - Any error messages
 
-### 2. Generate Report Header
+### 2. Generate Report
 
-Display:
+Output to stdout:
 ```
-═══════════════════════════════════════════════════════════════
-                     DEPLOYMENT REPORT
-═══════════════════════════════════════════════════════════════
+[step-03] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[step-03]
+[step-03] DEPLOYMENT REPORT
+[step-03]
 ```
 
-### 3. Display Deployment Summary
+### 3. Log Deployment Summary
 
-"**Deployment Details:**
+Output to stdout:
+```
+[step-03] Deployment Details:
+[step-03]   Type: [npm/docker/github-release/custom]
+[step-03]   Version: [version or N/A]
+[step-03]   Duration: [time elapsed]
+[step-03]   Status: ✅ Success / ❌ Failed / ⚠️ Partial
+```
 
-| Property | Value |
-|----------|-------|
-| Type | [npm/docker/github-release/custom] |
-| Version | [version or N/A] |
-| Duration | [time elapsed] |
-| Status | ✅ Success / ❌ Failed / ⚠️ Partial |"
+### 4. Log Step Results
 
-### 4. Display Step Results
+Output to stdout:
+```
+[step-03] Execution Steps:
+[step-03]   Pre-Checks: ✅ [count] passed
+[step-03]   Version Bump: ✅/❌/⏭️ [version or 'skipped' or error]
+[step-03]   Build: ✅/❌/⏭️ [status or 'skipped']
+[step-03]   Publish: ✅/❌ [destination]
+[step-03]   Post-Publish: ✅/❌/⏭️ [count] commands or 'skipped'
+```
 
-"**Execution Steps:**
-
-| Step | Status | Details |
-|------|--------|---------|
-| Pre-Checks | ✅ | [count] passed |
-| Version Bump | ✅/❌/⏭️ | [version or 'skipped' or error] |
-| Build | ✅/❌/⏭️ | [status or 'skipped'] |
-| Publish | ✅/❌ | [destination] |
-| Post-Publish | ✅/❌/⏭️ | [count] commands or 'skipped' |"
-
-### 5. Display Final Status
+### 5. Log Final Status
 
 #### IF deployment succeeded:
 
+Output to stdout:
 ```
-═══════════════════════════════════════════════════════════════
-  ✅ DEPLOYMENT SUCCESSFUL
-═══════════════════════════════════════════════════════════════
-
-Version [version] has been deployed successfully!
-
-Destination: [where it was published]
-Time: [duration]
+[step-03]
+[step-03] ✅ DEPLOYMENT SUCCESSFUL
+[step-03]
+[step-03] Version [version] has been deployed successfully!
+[step-03] Destination: [where it was published]
+[step-03] Duration: [time elapsed]
+[step-03]
+[step-03] Exit Code: 0
+[step-03] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 #### IF deployment failed:
 
+Output to stdout:
 ```
-═══════════════════════════════════════════════════════════════
-  ❌ DEPLOYMENT FAILED
-═══════════════════════════════════════════════════════════════
-
-Failed at: [step name]
-Error: [brief error summary]
-
-Completed steps:
-- [list of completed steps]
-
-To retry:
-1. Fix the issue: [suggestion based on error]
-2. Run `/ship` again
+[step-03]
+[step-03] ❌ DEPLOYMENT FAILED
+[step-03]
+[step-03] Failed at: [step name]
+[step-03] Error: [brief error summary]
+[step-03]
+[step-03] Completed: [list of completed steps]
+[step-03]
+[step-03] Exit Code: 1
+[step-03] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 #### IF partial success (post-publish failed):
 
+Output to stdout:
 ```
-═══════════════════════════════════════════════════════════════
-  ⚠️ DEPLOYMENT PARTIALLY SUCCESSFUL
-═══════════════════════════════════════════════════════════════
-
-Version [version] was published, but post-publish steps failed.
-
-Published: ✅
-Post-Publish: ❌
-
-You may need to run post-publish commands manually:
-- [list of failed post-publish commands]
-```
-
-### 6. Provide Next Steps
-
-#### IF success:
-"**Next Steps:**
-- Verify deployment at [destination URL if known]
-- Monitor for any issues
-- Update any dependent systems
-- Consider tagging release in git if not automated"
-
-#### IF failure:
-"**Next Steps:**
-- Review the error above
-- Fix the underlying issue
-- Run `/ship` to retry deployment"
-
-#### IF partial:
-"**Next Steps:**
-- Verify the published package/release
-- Run failed post-publish commands manually if needed
-- Consider fixing post-publish config for next time"
-
-### 7. End Workflow
-
-Display:
-```
-═══════════════════════════════════════════════════════════════
+[step-03]
+[step-03] ⚠️ DEPLOYMENT PARTIALLY SUCCESSFUL
+[step-03]
+[step-03] Version [version] was published, but post-publish steps failed.
+[step-03] Published: ✅
+[step-03] Post-Publish: ❌
+[step-03]
+[step-03] Exit Code: 2
+[step-03] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-"**Workflow Complete**
-
-Thank you for using the ship workflow. Run `/ship` anytime to deploy again."
+### 6. End Workflow
 
 This is the final step. Workflow ends here.
+
+**Exit Status:**
+- Exit 0 if deployment successful
+- Exit 1 if deployment failed
+- Exit 2 if partial success (published but post-publish failed)
 
 ## CRITICAL STEP COMPLETION NOTE
 

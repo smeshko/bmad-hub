@@ -23,24 +23,23 @@ To load and validate the ship configuration from project-config.yaml, run any co
 ### Universal Rules:
 
 - 📖 CRITICAL: Read the complete step file before taking any action
-- 🔄 CRITICAL: When loading next step, ensure entire file is read
+- 🔄 CRITICAL: Auto-proceed to next step upon completion
 - ⛔ FAIL FAST: Stop immediately on validation or pre-check failure
 - 📊 TRACK STATE: Maintain context for final reporting
 
 ### Role Reinforcement:
 
-- ✅ You are a release manager executing deployment validation
-- ✅ If you already have been given a name, communication_style and persona, continue to use those while playing this new role
-- ✅ This is a gated action workflow - work autonomously but confirm before destructive actions
-- ✅ You bring deployment expertise and validation, user confirms before execution
-- ✅ Maintain cautious and clear tone throughout
+- ✅ You are a release manager executing deployment autonomously
+- ✅ Work autonomously without waiting for user input
+- ✅ Log progress to stdout for CI visibility
+- ✅ Only stop on critical errors or pre-check failures
 
 ### Step-Specific Rules:
 
 - 🎯 Focus ONLY on loading config and running pre-checks
 - 🚫 FORBIDDEN to execute any deployment commands (version bump, build, publish)
-- 💬 Approach: Validate thoroughly before any deployment
-- 📋 Present full deployment plan for user confirmation
+- 📊 Log all actions to stdout
+- ⚡ Auto-proceed when complete
 
 ## EXECUTION PROTOCOLS:
 
@@ -97,75 +96,56 @@ Workflow aborted."
 
 End workflow.
 
-### 4. Display Ship Plan
+### 4. Log Ship Plan
 
-"**Ship Configuration Loaded**
-
-| Setting | Value |
-|---------|-------|
-| Type | [npm/docker/github-release/custom] |
-| Version Bump | [command or 'not configured'] |
-| Build | [command or 'not configured'] |
-| Publish | [command] |
-| Post-Publish | [count] commands |
-| Pre-Checks | [count] commands |
-
-**Environment:** [if specified]"
+Output to stdout:
+```
+[step-01] ✓ Ship configuration loaded
+[step-01]   Type: [npm/docker/github-release/custom]
+[step-01]   Version Bump: [command or 'not configured']
+[step-01]   Build: [command or 'not configured']
+[step-01]   Publish: [command]
+[step-01]   Post-Publish: [count] commands
+[step-01]   Pre-Checks: [count] commands
+```
 
 ### 5. Run Pre-Checks
 
 If `pre_checks` is configured and not empty:
 
-"**Running Pre-Checks...**"
+Output to stdout:
+```
+[step-01] Running pre-checks...
+```
 
 For each pre-check command:
 - Execute the command
-- Display result
+- Output: `[step-01]   ✓ [command] passed` or `[step-01]   ✗ [command] failed`
 
 If any pre-check fails:
 
-"**Pre-Check Failed**
+Output to stdout:
+```
+[step-01] ✗ CRITICAL: Pre-check failed
+[step-01]   Command: [failed command]
+[step-01]   Error: [error output]
+[step-01]   Deployment aborted
+[step-01] Exit Code: 1
+```
 
-Command: [failed command]
-Error: [error output]
-
-Deployment aborted. Fix the issue and try again."
-
-End workflow.
+Exit with code 1.
 
 If all pre-checks pass (or none configured):
 
-"**All Pre-Checks Passed** ✅"
+Output to stdout:
+```
+[step-01] ✓ All pre-checks passed
+[step-01] ✓ Step 1 complete - proceeding to deployment execution
+```
 
-### 6. Confirm Deployment Plan
+### 6. Auto-Proceed
 
-Display:
-
-"**Ready to Ship**
-
-This will execute the following commands in order:
-1. [version_bump command] (if configured)
-2. [build command] (if configured)
-3. [publish command]
-4. [post_publish commands] (if configured)
-
-**Select an Option:** [C] Continue with Deployment [X] Exit"
-
-### 7. Menu Handling Logic
-
-- IF C: Store ship context in memory, then load, read entire file, then execute {nextStepFile}
-- IF X: End workflow gracefully with "Deployment cancelled. Run `/ship` when ready."
-- IF Any other comments or queries: help user respond then redisplay menu
-
-#### EXECUTION RULES:
-
-- ALWAYS halt and wait for user confirmation before proceeding to deployment
-- ONLY proceed to execution step when user selects 'C'
-- This gate prevents accidental deployments
-
-## CRITICAL STEP COMPLETION NOTE
-
-ONLY WHEN [C continue option] is selected and [configuration validated and all pre-checks passed], will you then load and read fully `{nextStepFile}` to execute and begin the deployment execution phase.
+Store ship context in memory, then load, read entire file, then execute {nextStepFile}.
 
 ---
 
@@ -175,15 +155,17 @@ ONLY WHEN [C continue option] is selected and [configuration validated and all p
 
 - Configuration loaded and validated successfully
 - All pre-checks executed and passed
-- User confirms deployment plan before proceeding
-- Ship context stored for next step
+- Progress logged to stdout
+- Auto-proceeded to execution step
 
-### ❌ SYSTEM FAILURE:
+### ❌ CRITICAL FAILURE (Exit 1):
 
-- Not validating configuration before proceeding
-- Skipping pre-checks
-- Proceeding when pre-checks fail
-- Executing deployment commands in this step
-- Proceeding without user confirmation
+- Configuration file not found
+- Ship section not configured
+- Pre-checks failed
+
+### ⚠️ WARNING (Continue):
+
+- Optional configuration missing
 
 **Master Rule:** Skipping steps, optimizing sequences, or not following exact instructions is FORBIDDEN and constitutes SYSTEM FAILURE.

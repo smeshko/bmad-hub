@@ -1,20 +1,38 @@
 ---
 name: run-tests
-description: Run all configured test commands with auto-fix capability
+description: Autonomously run all configured test commands with auto-fix capability. Designed for CI/automation.
 web_bundle: true
 ---
 
 # Run Tests
 
-**Goal:** Run all configured test, lint, and quality commands from project-config.yaml, automatically fix failures, and commit fixes.
+**Goal:** Autonomously run all configured test, lint, and quality commands from project-config.yaml, automatically fix failures, and commit fixes.
 
-**Your Role:** You are a test runner and code fixer. Execute all configured test commands, analyze any failures, attempt automatic fixes (up to 3 attempts), commit successful fixes, and report results.
+**Your Role:** You are a test runner and code fixer. Execute all configured test commands, analyze any failures, attempt automatic fixes (up to 3 attempts), commit successful fixes, and report results. Work autonomously without user interaction.
+
+---
+
+## CI/AUTOMATION DESIGN
+
+This is an **action workflow** designed for autonomous execution in CI pipelines.
+
+### Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | All tests passed (including after fixes) |
+| 1 | Tests failed after fix attempts |
+
+### Output
+
+- **Stdout**: Progress logging with `[step-XX]` prefix for CI visibility
+- **Results**: Pass/fail/fixed summary table
 
 ---
 
 ## WORKFLOW ARCHITECTURE
 
-This is an **action workflow** that executes commands and fixes code.
+This is an **action workflow** that executes commands and fixes code autonomously.
 
 ### Core Principles
 
@@ -22,7 +40,8 @@ This is an **action workflow** that executes commands and fixes code.
 - **Run All**: Execute all configured commands, don't fail fast
 - **Auto-Fix**: Attempt to fix failures automatically (max 3 attempts)
 - **Auto-Commit**: Commit successful fixes with descriptive messages
-- **Clear Reporting**: Show pass/fail/fixed summary at end
+- **Auto-Proceed**: Move between steps automatically (no user confirmation)
+- **Clear Reporting**: Output pass/fail/fixed summary to stdout
 - **Fail-Safe**: Handle errors gracefully, continue where possible, report all issues
 
 ### Step Processing Rules
@@ -30,8 +49,9 @@ This is an **action workflow** that executes commands and fixes code.
 1. **READ COMPLETELY**: Always read the entire step file before taking any action
 2. **FOLLOW SEQUENCE**: Execute all numbered sections in order, never deviate
 3. **AUTO-PROCEED**: Move to next step immediately upon completion (no menu wait)
-4. **TRACK STATE**: Maintain execution context between steps for final reporting
-5. **LOAD NEXT**: When directed, load, read entire file, then execute the next step file
+4. **LOG PROGRESS**: Output step progress to stdout with `[step-XX]` prefix
+5. **TRACK STATE**: Maintain execution context between steps for final reporting
+6. **LOAD NEXT**: When directed, load, read entire file, then execute the next step file
 
 ### Execution Rules
 
@@ -47,6 +67,7 @@ This is an **action workflow** that executes commands and fixes code.
 - 📖 **ALWAYS** read project-config.yaml first
 - 🔄 **ALWAYS** run all commands before attempting fixes
 - 💾 **ALWAYS** commit fixes with descriptive messages
+- 📊 **ALWAYS** log progress to stdout
 - 🎯 **ALWAYS** report final status clearly
 - ⏹️ **STOP** fix attempts after 3 tries
 

@@ -74,7 +74,12 @@ fixContext = {
 
 While `attempt <= maxAttempts` AND `failedCommands.length > 0`:
 
-Display: "**Fix Attempt [attempt]/[maxAttempts]**"
+Output to stdout:
+```
+[step-03] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[step-03] Fix Attempt [attempt]/[maxAttempts]
+[step-03] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
 
 #### A. Analyze Each Failure
 
@@ -129,21 +134,23 @@ else:
 attempt++
 ```
 
-#### E. Display Attempt Results
+#### E. Log Attempt Results
 
-"**Attempt [attempt] Results:**
-
-| Command | Status | Fix Applied |
-|---------|--------|-------------|
-| [name] | ✅ Fixed / ❌ Still failing | [description] |
-
-[X] fixed, [Y] still failing"
+Output to stdout:
+```
+[step-03] Attempt [attempt] Results:
+[step-03]   [command]: ✅ Fixed / ❌ Still failing
+[step-03]   Fixed: [X], Still failing: [Y]
+```
 
 ### 3. Commit Fixes
 
 If any fixes were applied:
 
-"**Committing fixes...**"
+Output to stdout:
+```
+[step-03] Committing fixes...
+```
 
 - Stage all modified files
 - Create commit with message:
@@ -154,7 +161,10 @@ If any fixes were applied:
   - [list of fixes applied]
   ```
 
-Display: "Committed [X] fixes in [commit hash]"
+Output to stdout:
+```
+[step-03] ✓ Committed [X] fixes in [commit hash]
+```
 
 ### 4. Final Status Check
 
@@ -164,14 +174,22 @@ After loop completes (all pass OR 3 attempts exhausted):
 ```
 fixContext.status = 'ALL_FIXED'
 ```
-Display: "All issues fixed successfully!"
+Output to stdout:
+```
+[step-03] ✓ All issues fixed successfully!
+[step-03] ✓ Step 3 complete - proceeding to report
+```
 
 #### IF some still failing after 3 attempts:
 ```
 fixContext.status = 'PARTIAL_FIX'
 fixContext.stillFailing = [remaining failures]
 ```
-Display: "Fixed [X] issues, [Y] still failing after 3 attempts."
+Output to stdout:
+```
+[step-03] ⚠ Fixed [X] issues, [Y] still failing after 3 attempts
+[step-03] ✓ Step 3 complete - proceeding to report
+```
 
 ### 5. Store Fix Context and Proceed
 

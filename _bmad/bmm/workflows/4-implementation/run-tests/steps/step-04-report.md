@@ -59,96 +59,83 @@ Gather from context:
 - Fix attempts and outcomes from step 3 (if applicable)
 - Commit information (if fixes were made)
 
-### 2. Generate Report Header
+### 2. Generate Report
 
+Output to stdout:
 ```
-═══════════════════════════════════════════════════════════════
-                        TEST REPORT
-═══════════════════════════════════════════════════════════════
+[step-04] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[step-04]
+[step-04] TEST REPORT
+[step-04]
 ```
 
-### 3. Display Results Table
+### 3. Log Results Table
 
-"**Command Results:**
+Output to stdout:
+```
+[step-04] Command Results:
+[step-04]   | Command | Initial | Final | Fixed |
+[step-04]   |---------|---------|-------|-------|
+[step-04]   | unit | ✅/❌ | ✅/❌ | Yes/No |
+[step-04]   | e2e | ✅/❌ | ✅/❌ | Yes/No |
+[step-04]   | lint | ✅/❌ | ✅/❌ | Yes/No |
+[step-04]   | typecheck | ✅/❌ | ✅/❌ | Yes/No |
+```
 
-| Command | Initial | Final | Fixed |
-|---------|---------|-------|-------|
-| unit | ✅/❌ | ✅/❌ | Yes/No |
-| e2e | ✅/❌ | ✅/❌ | Yes/No |
-| lint | ✅/❌ | ✅/❌ | Yes/No |
-| typecheck | ✅/❌ | ✅/❌ | Yes/No |
-| [custom] | ✅/❌ | ✅/❌ | Yes/No |"
+### 4. Log Fix Summary (if applicable)
 
-### 4. Display Fix Summary (if applicable)
+If fixes were attempted, output to stdout:
+```
+[step-04] Fixes Applied:
+[step-04]   [X] files changed, [Y] fixes committed
+```
 
-If fixes were attempted:
-
-"**Fixes Applied:**
-
-| File | Change | Commit |
-|------|--------|--------|
-| [file] | [description] | [hash] |
-| ... | ... | ... |
-
-**Total:** [X] files changed, [Y] fixes applied"
-
-### 5. Display Final Status
+### 5. Log Final Status
 
 #### IF all passed (including after fixes):
 
+Output to stdout:
 ```
-═══════════════════════════════════════════════════════════════
-  ✅ ALL TESTS PASSED
-═══════════════════════════════════════════════════════════════
-
-Summary:
-- Commands run: [X]
-- Initially passed: [Y]
-- Fixed: [Z]
-- Final status: ALL PASS
+[step-04]
+[step-04] ✅ ALL TESTS PASSED
+[step-04]
+[step-04] Summary:
+[step-04]   Commands run: [X]
+[step-04]   Initially passed: [Y]
+[step-04]   Fixed: [Z]
+[step-04]   Final status: ALL PASS
+[step-04]
+[step-04] Exit Code: 0
+[step-04] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 #### IF some still failing:
 
+Output to stdout:
 ```
-═══════════════════════════════════════════════════════════════
-  ❌ SOME TESTS FAILED
-═══════════════════════════════════════════════════════════════
-
-Summary:
-- Commands run: [X]
-- Passed: [Y]
-- Fixed: [Z]
-- Still failing: [W]
-
-Remaining Failures:
-1. [command]: [brief error summary]
-2. [command]: [brief error summary]
-
-These failures require manual intervention.
+[step-04]
+[step-04] ❌ SOME TESTS FAILED
+[step-04]
+[step-04] Summary:
+[step-04]   Commands run: [X]
+[step-04]   Passed: [Y]
+[step-04]   Fixed: [Z]
+[step-04]   Still failing: [W]
+[step-04]
+[step-04] Remaining Failures:
+[step-04]   - [command]: [brief error summary]
+[step-04]
+[step-04] Exit Code: 1
+[step-04] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-### 6. Provide Next Steps
-
-#### IF all passed:
-"**Next Steps:**
-- Continue with your workflow
-- Run `/document` to verify documentation
-- Run `/ship` when ready to deploy"
-
-#### IF failures remain:
-"**Next Steps:**
-- Review the failing commands above
-- Fix issues manually
-- Run `/test` again to verify fixes"
-
-### 7. End Workflow
+### 6. End Workflow
 
 This is the final step. Workflow ends here.
 
 **Exit Status:**
-- Return success (0) if all tests pass
-- Return failure (1) if any tests still failing
+- Exit 0 if all tests pass
+- Exit 1 if any tests still failing
 
 ---
 

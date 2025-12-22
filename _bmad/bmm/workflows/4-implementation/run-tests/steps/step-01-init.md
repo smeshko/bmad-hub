@@ -92,22 +92,20 @@ Workflow aborted."
 
 End workflow.
 
-### 5. Display Test Plan
+### 5. Log Test Plan
 
-If configuration is valid, display:
-
-"**Test Configuration Loaded**
-
-| Command | Enabled | Command String |
-|---------|---------|----------------|
-| pre_commands | [count] | [commands] |
-| unit | [yes/no] | [command] |
-| e2e | [yes/no] | [command] |
-| lint | [yes/no] | [command] |
-| typecheck | [yes/no] | [command] |
-| custom | [count] | [commands] |
-
-**Proceeding to execute all enabled commands...**"
+Output to stdout:
+```
+[step-01] ✓ Test configuration loaded
+[step-01]   Commands enabled:
+[step-01]     - pre_commands: [count]
+[step-01]     - unit: [yes/no]
+[step-01]     - e2e: [yes/no]
+[step-01]     - lint: [yes/no]
+[step-01]     - typecheck: [yes/no]
+[step-01]     - custom: [count]
+[step-01] ✓ Step 1 complete - proceeding to execution
+```
 
 ### 6. Store Config Context
 

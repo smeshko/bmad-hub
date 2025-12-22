@@ -108,37 +108,36 @@ For each command in `custom`:
 - Record result
 - Capture output
 
-### 3. Display Execution Progress
+### 3. Log Execution Progress
 
-For each command, display:
+For each command, output to stdout:
 ```
-Running: [command name]...
-[command output - abbreviated if long]
-Result: ✅ PASS / ❌ FAIL
+[step-02] Running: [command name]...
+[step-02]   [command output - abbreviated if long]
+[step-02]   Result: ✅ PASS / ❌ FAIL
 ```
 
-### 4. Compile Results Summary
+### 4. Log Results Summary
 
-After all commands complete:
-
-"**Execution Complete**
-
-| Command | Status | Duration |
-|---------|--------|----------|
-| [name] | ✅/❌ | [time] |
-| ... | ... | ... |
-
-**Summary:** [X] passed, [Y] failed, [Z] skipped
-**Total Time:** [duration]"
+After all commands complete, output to stdout:
+```
+[step-02] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[step-02] Execution Complete
+[step-02]   Passed: [X]
+[step-02]   Failed: [Y]
+[step-02]   Skipped: [Z]
+[step-02]   Total Time: [duration]
+[step-02] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
 
 ### 5. Route Based on Results
 
 #### IF all passed:
-Display: "All tests passed!"
+Output: `[step-02] ✓ All tests passed - proceeding to report`
 Load, read entire file, then execute `{reportStepFile}`
 
 #### IF any failed:
-Display: "Some tests failed. Attempting automatic fixes..."
+Output: `[step-02] ⚠ Some tests failed - attempting automatic fixes`
 Store failed commands and their error output in context
 Load, read entire file, then execute `{fixStepFile}`
 

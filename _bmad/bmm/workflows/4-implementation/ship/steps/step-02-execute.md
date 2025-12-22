@@ -22,24 +22,23 @@ To execute all configured deployment commands in sequence (version bump, build, 
 ### Universal Rules:
 
 - 📖 CRITICAL: Read the complete step file before taking any action
-- 🔄 CRITICAL: When loading next step, ensure entire file is read
+- 🔄 CRITICAL: Auto-proceed to next step upon completion
 - ⛔ FAIL FAST: Stop immediately on any command failure
 - 📊 TRACK STATE: Capture all results for final reporting
 
 ### Role Reinforcement:
 
-- ✅ You are a release manager executing deployment commands
-- ✅ If you already have been given a name, communication_style and persona, continue to use those while playing this new role
-- ✅ This is autonomous execution - run all commands, capture all output
-- ✅ You bring careful execution and error handling, track all results for reporting
-- ✅ Maintain cautious and methodical tone throughout
+- ✅ You are a release manager executing deployment autonomously
+- ✅ Work autonomously without waiting for user input
+- ✅ Log progress to stdout for CI visibility
+- ✅ Only stop on command failures
 
 ### Step-Specific Rules:
 
 - 🎯 Execute commands in exact configured order
 - 🚫 FAIL FAST - stop immediately on first failure
-- 💬 Approach: Execute carefully, capture all output
-- 📋 Track what succeeded for reporting
+- 📊 Log progress to stdout
+- ⚡ Auto-proceed when complete
 
 ## EXECUTION PROTOCOLS:
 
@@ -75,19 +74,21 @@ deployment = {
 
 If `version_bump` command is configured:
 
-"**Step 1: Version Bump**
-Running: `[version_bump command]`"
+Output to stdout:
+```
+[step-02] Executing version bump...
+[step-02]   Running: [version_bump command]
+```
 
 Execute command and capture output.
 
 If success:
 - Parse new version from output (e.g., "v1.2.3")
 - Store version: `deployment.version = newVersion`
-- Display: "Version bumped to [version] ✅"
+- Output: `[step-02]   ✓ Version bumped to [version]`
 
 If failure:
-- Display: "**Version bump failed** ❌"
-- Display error output
+- Output: `[step-02]   ✗ Version bump failed`
 - Store: `deployment.failedAt = 'version_bump'`
 - Jump to Section 7 (Handle Failure)
 
@@ -95,34 +96,38 @@ If failure:
 
 If `build` command is configured:
 
-"**Step 2: Build**
-Running: `[build command]`"
+Output to stdout:
+```
+[step-02] Executing build...
+[step-02]   Running: [build command]
+```
 
 Execute command and capture output.
 
 If success:
-- Display: "Build completed ✅"
+- Output: `[step-02]   ✓ Build completed`
 
 If failure:
-- Display: "**Build failed** ❌"
-- Display error output
+- Output: `[step-02]   ✗ Build failed`
 - Store: `deployment.failedAt = 'build'`
 - Jump to Section 7 (Handle Failure)
 
 ### 4. Execute Publish
 
-"**Step 3: Publish**
-Running: `[publish command]`"
+Output to stdout:
+```
+[step-02] Executing publish...
+[step-02]   Running: [publish command]
+```
 
 Execute command and capture output.
 
 If success:
-- Display: "Published successfully ✅"
+- Output: `[step-02]   ✓ Published successfully`
 - Parse any relevant output (registry URL, release URL, etc.)
 
 If failure:
-- Display: "**Publish failed** ❌"
-- Display error output
+- Output: `[step-02]   ✗ Publish failed`
 - Store: `deployment.failedAt = 'publish'`
 - Jump to Section 7 (Handle Failure)
 
@@ -130,74 +135,62 @@ If failure:
 
 If `post_publish` commands are configured:
 
-"**Step 4: Post-Publish**"
+Output to stdout:
+```
+[step-02] Executing post-publish commands...
+```
 
 For each post_publish command:
-- "Running: `[command]`"
+- Output: `[step-02]   Running: [command]`
 - Execute and capture output
 
 If any fails:
-- Display: "**Post-publish command failed** ❌"
-- Display error output
+- Output: `[step-02]   ✗ Post-publish command failed`
 - Store: `deployment.failedAt = 'post_publish'`
-- Note: Publish already succeeded - flag as partial success
+- Note: Publish already succeeded - flag as partial success (exit code 2)
 
 If all succeed:
-- Display: "Post-publish completed ✅"
+- Output: `[step-02]   ✓ Post-publish completed`
 
 ### 6. Handle Success
 
 If all steps succeeded:
 
-"**All Deployment Steps Completed Successfully** ✅
+Output to stdout:
+```
+[step-02] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[step-02] ✓ All deployment steps completed
+[step-02]   Version Bump: ✓ [version or 'skipped']
+[step-02]   Build: ✓ [or 'skipped']
+[step-02]   Publish: ✓
+[step-02]   Post-Publish: ✓ [or 'skipped']
+[step-02] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[step-02] ✓ Step 2 complete - proceeding to report
+```
 
-| Step | Status |
-|------|--------|
-| Version Bump | ✅ [version or 'skipped'] |
-| Build | ✅ [or 'skipped'] |
-| Publish | ✅ |
-| Post-Publish | ✅ [or 'skipped'] |
-
-`deployment.success = true`"
-
-Jump to Section 8.
+Store `deployment.success = true`, then proceed to Section 8.
 
 ### 7. Handle Failure
 
 If any step failed:
 
-"**Deployment Failed** ❌
-
-Failed at: [step name]
-Error: [error summary]
-
-**Completed before failure:**
-[list of completed steps]
-
-**Not executed:**
-[list of remaining steps]"
+Output to stdout:
+```
+[step-02] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+[step-02] ✗ Deployment failed
+[step-02]   Failed at: [step name]
+[step-02]   Error: [error summary]
+[step-02]
+[step-02]   Completed: [list of completed steps]
+[step-02]   Not executed: [list of remaining steps]
+[step-02] ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+```
 
 Store failure context for report.
 
-### 8. Present Menu Options
+### 8. Auto-Proceed to Report
 
-Display: "**Select an Option:** [C] Continue to Report [X] Exit"
-
-#### Menu Handling Logic:
-
-- IF C: Store deployment context, then load, read entire file, then execute {nextStepFile}
-- IF X: End workflow with "Deployment [succeeded/failed]. Run `/ship` to try again."
-- IF Any other comments or queries: help user respond then redisplay menu
-
-#### EXECUTION RULES:
-
-- ALWAYS present results before proceeding to report
-- ONLY proceed to report step when user selects 'C'
-- Allow user to review execution results before final report
-
-## CRITICAL STEP COMPLETION NOTE
-
-ONLY WHEN [C continue option] is selected and [all commands executed or failure handled], will you then load and read fully `{nextStepFile}` to execute and generate the final deployment report.
+Store deployment context, then load, read entire file, then execute {nextStepFile}.
 
 ---
 
@@ -229,14 +222,15 @@ ONLY WHEN [C continue option] is selected and [all commands executed or failure 
 - Version tracked if bumped
 - Output captured for each step
 - Success/failure status clearly tracked
-- User can proceed to report
+- Progress logged to stdout
+- Auto-proceeded to report
 
-### ❌ SYSTEM FAILURE:
+### ❌ CRITICAL FAILURE (Exit 1):
 
-- Continuing execution after a command fails
-- Wrong command order
-- Not capturing output
-- Not tracking what succeeded before failure
-- Proceeding without user confirmation
+- Deployment command failed (version bump, build, or publish)
+
+### ⚠️ PARTIAL SUCCESS (Exit 2):
+
+- Publish succeeded but post-publish failed
 
 **Master Rule:** Skipping steps, optimizing sequences, or not following exact instructions is FORBIDDEN and constitutes SYSTEM FAILURE.
