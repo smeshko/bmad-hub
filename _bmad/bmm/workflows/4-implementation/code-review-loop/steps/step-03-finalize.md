@@ -39,19 +39,17 @@ To complete the code review loop by updating the story status to "done", creatin
 
 - ✅ You are completing the review process
 - ✅ Ensure all work is properly documented
-- ✅ Create a PR that's ready for human review
+- ✅ Ensure review results are documented
 
 ### Step-Specific Rules:
 
 - 🎯 Update story status to "done"
-- 🎯 ALWAYS create PR (even if max cycles reached)
 - 📋 Print comprehensive summary to terminal
 
 ## EXECUTION PROTOCOLS:
 
 - 🎯 Complete all finalization tasks
 - 💾 Update story file and sprint-status.yaml
-- 📖 Create PR with detailed description
 - ✅ Print summary and complete workflow
 
 ## CONTEXT FROM PREVIOUS STEPS:
@@ -84,55 +82,7 @@ Update `{sprint_status_file}` to mark the story as done:
 {story-key}: done
 ```
 
-### 3. Create Pull Request
-
-Create PR using GitHub CLI:
-
-```bash
-gh pr create \
-  --base staging \
-  --title "feat({story-key}): {story title}" \
-  --body "$(cat <<'EOF'
-## Summary
-
-{Brief description of what this story implements}
-
-## Code Review Summary
-
-**Review Cycles:** {cycle_count}
-**Exit Reason:** {exit_reason}
-
-### Issues Fixed ({issues_fixed.length})
-
-{For each fixed issue:}
-- **{file}**: {issue} → {fix}
-
-### Issues Skipped ({issues_skipped.length})
-
-{For each skipped issue:}
-- **{file}**: {issue} (Reason: {reason})
-
-## Manual Validation Checklist
-
-Based on the story's acceptance criteria, please verify:
-
-{Generate checklist from story's Given/When/Then criteria}
-
-- [ ] {Acceptance criterion 1}
-- [ ] {Acceptance criterion 2}
-- [ ] {Acceptance criterion N}
-
-## Test Evidence
-
-- [ ] All tests pass (`pytest`)
-- [ ] Type checking passes (`mypy --strict`)
-- [ ] Linting passes (`ruff check`)
-
-EOF
-)"
-```
-
-### 4. Print Terminal Summary
+### 3. Print Terminal Summary
 
 Display comprehensive summary:
 
@@ -170,23 +120,19 @@ Display comprehensive summary:
   □ {Criterion 2}
   □ {Criterion N}
 
-  Pull Request:
-  ───────────────────────────────────────────────────────────
-  PR created: {pr_url}
-
 ═══════════════════════════════════════════════════════════════
   Workflow Complete
 ═══════════════════════════════════════════════════════════════
 ```
 
-### 5. Exit Reason Descriptions
+### 4. Exit Reason Descriptions
 
 Map exit_reason to human-readable description:
 - `clean` → "Codex found no issues - code is clean"
 - `all_false_positives` → "All Codex findings were false positives"
 - `max_cycles_reached` → "Maximum 2 cycles reached - some issues may remain"
 
-### 6. Workflow Complete
+### 5. Workflow Complete
 
 The workflow is now complete. No further action needed.
 
@@ -204,14 +150,12 @@ This is the FINAL step. After printing the summary, the workflow is complete. Do
 
 - Story status updated to "done"
 - Sprint status updated
-- PR created with detailed description
 - Summary printed to terminal
 - Workflow completed cleanly
 
 ### ❌ SYSTEM FAILURE:
 
 - Not updating story status
-- Not creating PR
 - Missing summary information
 - Stopping to ask user questions
 - Attempting to load another step

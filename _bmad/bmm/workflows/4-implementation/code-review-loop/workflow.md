@@ -52,7 +52,6 @@ This uses **step-file architecture** for disciplined execution:
 - 📖 **ALWAYS** read entire step file before execution
 - 🚫 **NEVER** skip steps or optimize the sequence
 - 💾 **ALWAYS** commit after each fix cycle
-- 🎯 **ALWAYS** create PR at the end
 
 <!-- AUTONOMOUS WORKFLOW: Standard rules adapted for autonomous operation:
 - "halt at menus" → replaced by auto-proceed (no user interaction)
