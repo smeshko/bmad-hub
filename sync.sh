@@ -177,7 +177,10 @@ iso_to_epoch() {
         return
     fi
     if [[ "$(uname)" == "Darwin" ]]; then
-        date -j -f "%Y-%m-%dT%H:%M:%SZ" "$iso" +%s 2>/dev/null || echo "0"
+        # macOS date doesn't handle Z timezone suffix properly
+        # Strip Z and use -u flag to parse as UTC
+        local iso_no_z="${iso%Z}"
+        TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%S" "$iso_no_z" +%s 2>/dev/null || echo "0"
     else
         date -d "$iso" +%s 2>/dev/null || echo "0"
     fi
