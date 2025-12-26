@@ -28,6 +28,7 @@ PROJECTS_FILE="$HUB_DIR/projects.yaml"
 
 # Flags
 DRY_RUN=false
+FORCE_SYNC=false
 SPECIFIC_PROJECT=""
 LIST_ONLY=false
 
@@ -42,20 +43,32 @@ while [[ $# -gt 0 ]]; do
             LIST_ONLY=true
             shift
             ;;
+        --force|-f)
+            FORCE_SYNC=true
+            shift
+            ;;
         --help|-h)
             echo "BMAD Hub Sync Script"
             echo ""
             echo "Usage:"
-            echo "  ./sync.sh              Sync all enabled projects"
+            echo "  ./sync.sh              Sync projects that need updating"
             echo "  ./sync.sh --dry-run    Preview changes without applying"
+            echo "  ./sync.sh --force      Force sync all projects, ignoring timestamps"
             echo "  ./sync.sh --list       List all registered projects"
             echo "  ./sync.sh <name>       Sync a specific project by name"
             echo "  ./sync.sh --help       Show this help message"
             echo ""
             echo "Options:"
             echo "  -n, --dry-run    Show what would be done without making changes"
+            echo "  -f, --force      Ignore timestamps and sync all enabled projects"
             echo "  -l, --list       List all projects in projects.yaml"
             echo "  -h, --help       Show this help message"
+            echo ""
+            echo "Timestamp-based syncing:"
+            echo "  The sync script tracks when each project was last synced."
+            echo "  It compares this against the hub's latest modification time"
+            echo "  and only syncs projects that are out of date."
+            echo "  Use --force to sync regardless of timestamps."
             echo ""
             echo "Migration:"
             echo "  This script automatically detects and migrates alpha.15 installations"
@@ -113,6 +126,103 @@ log_error() {
 
 log_migrate() {
     echo -e "${MAGENTA}↗${NC} $1"
+}
+
+log_uptodate() {
+    echo -e "${CYAN}○${NC} $1"
+}
+
+# Function to get the hub's latest modification timestamp (seconds since epoch)
+# Scans _bmad/, .claude/commands/bmad/, .cursor/rules/bmad/, .gemini/commands/
+get_hub_modified_timestamp() {
+    local latest=0
+    local dirs=("$HUB_DIR/_bmad" "$HUB_DIR/.claude/commands/bmad" "$HUB_DIR/.cursor/rules/bmad" "$HUB_DIR/.gemini/commands")
+
+    for dir in "${dirs[@]}"; do
+        if [[ -d "$dir" ]]; then
+            # Find the most recently modified file in this directory
+            local dir_latest
+            if [[ "$(uname)" == "Darwin" ]]; then
+                # macOS: use stat -f %m for modification time
+                dir_latest=$(find "$dir" -type f -exec stat -f %m {} \; 2>/dev/null | sort -rn | head -1)
+            else
+                # Linux: use stat -c %Y
+                dir_latest=$(find "$dir" -type f -exec stat -c %Y {} \; 2>/dev/null | sort -rn | head -1)
+            fi
+
+            if [[ -n "$dir_latest" ]] && [[ "$dir_latest" -gt "$latest" ]]; then
+                latest="$dir_latest"
+            fi
+        fi
+    done
+
+    echo "$latest"
+}
+
+# Function to convert epoch seconds to ISO 8601 format
+epoch_to_iso() {
+    local epoch="$1"
+    if [[ "$(uname)" == "Darwin" ]]; then
+        date -r "$epoch" -u +"%Y-%m-%dT%H:%M:%SZ"
+    else
+        date -d "@$epoch" -u +"%Y-%m-%dT%H:%M:%SZ"
+    fi
+}
+
+# Function to convert ISO 8601 to epoch seconds
+iso_to_epoch() {
+    local iso="$1"
+    if [[ -z "$iso" ]] || [[ "$iso" == "null" ]]; then
+        echo "0"
+        return
+    fi
+    if [[ "$(uname)" == "Darwin" ]]; then
+        date -j -f "%Y-%m-%dT%H:%M:%SZ" "$iso" +%s 2>/dev/null || echo "0"
+    else
+        date -d "$iso" +%s 2>/dev/null || echo "0"
+    fi
+}
+
+# Function to get a project's lastSynced timestamp (returns epoch seconds, 0 if never synced)
+get_project_last_synced() {
+    local index="$1"
+    local last_synced=$(yq ".projects[$index].lastSynced // null" "$PROJECTS_FILE")
+    iso_to_epoch "$last_synced"
+}
+
+# Function to update a project's lastSynced timestamp
+update_project_last_synced() {
+    local index="$1"
+    local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+    yq -i ".projects[$index].lastSynced = \"$timestamp\"" "$PROJECTS_FILE"
+}
+
+# Function to check if a project needs syncing
+# Returns 0 (true) if sync needed, 1 (false) if up-to-date
+project_needs_sync() {
+    local index="$1"
+    local hub_timestamp="$2"
+
+    # If force sync is enabled, always return true
+    if [[ "$FORCE_SYNC" == "true" ]]; then
+        return 0
+    fi
+
+    local project_last_synced=$(get_project_last_synced "$index")
+
+    # If never synced (0), needs sync
+    if [[ "$project_last_synced" -eq 0 ]]; then
+        return 0
+    fi
+
+    # If hub is newer than last sync, needs sync
+    if [[ "$hub_timestamp" -gt "$project_last_synced" ]]; then
+        return 0
+    fi
+
+    # Up to date
+    return 1
 }
 
 # Function to detect BMAD installation type
@@ -540,6 +650,12 @@ list_projects() {
     echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
     echo ""
 
+    # Get hub modification timestamp
+    local hub_timestamp=$(get_hub_modified_timestamp)
+    local hub_iso=$(epoch_to_iso "$hub_timestamp")
+    echo -e "Hub last modified: ${BLUE}$hub_iso${NC}"
+    echo ""
+
     local count=$(yq '.projects | length' "$PROJECTS_FILE")
 
     if [[ "$count" == "0" ]] || [[ "$count" == "null" ]]; then
@@ -552,6 +668,7 @@ list_projects() {
         local proj_path=$(yq ".projects[$i].path" "$PROJECTS_FILE")
         local enabled=$(yq ".projects[$i].enabled" "$PROJECTS_FILE")
         local desc=$(yq ".projects[$i].description // \"\"" "$PROJECTS_FILE")
+        local last_synced=$(yq ".projects[$i].lastSynced // null" "$PROJECTS_FILE")
 
         if [[ "$enabled" == "true" ]]; then
             echo -e "${GREEN}●${NC} ${name}"
@@ -561,6 +678,18 @@ list_projects() {
         echo "    Path: $proj_path"
         if [[ -n "$desc" && "$desc" != "null" ]]; then
             echo "    Description: $desc"
+        fi
+
+        # Show lastSynced and sync status
+        if [[ "$last_synced" == "null" ]] || [[ -z "$last_synced" ]]; then
+            echo -e "    Last synced: ${YELLOW}never${NC}"
+        else
+            local last_synced_epoch=$(iso_to_epoch "$last_synced")
+            if [[ "$last_synced_epoch" -ge "$hub_timestamp" ]]; then
+                echo -e "    Last synced: ${GREEN}$last_synced${NC} (up-to-date)"
+            else
+                echo -e "    Last synced: ${YELLOW}$last_synced${NC} (needs sync)"
+            fi
         fi
 
         if [[ -d "$proj_path" ]]; then
@@ -781,6 +910,17 @@ if [[ "$DRY_RUN" == "true" ]]; then
     echo ""
 fi
 
+if [[ "$FORCE_SYNC" == "true" ]]; then
+    echo -e "${YELLOW}>>> FORCE MODE - Ignoring timestamps <<<${NC}"
+    echo ""
+fi
+
+# Get hub modification timestamp
+HUB_TIMESTAMP=$(get_hub_modified_timestamp)
+HUB_MODIFIED_ISO=$(epoch_to_iso "$HUB_TIMESTAMP")
+log "Hub last modified: $HUB_MODIFIED_ISO"
+echo ""
+
 # Handle --list flag
 if [[ "$LIST_ONLY" == "true" ]]; then
     list_projects
@@ -801,6 +941,7 @@ SYNCED=0
 FAILED=0
 SKIPPED=0
 MIGRATED=0
+UP_TO_DATE=0
 
 # Sync specific project or all enabled projects
 for ((i=0; i<PROJECT_COUNT; i++)); do
@@ -816,6 +957,10 @@ for ((i=0; i<PROJECT_COUNT; i++)); do
             if sync_project "$name" "$path" "$ides"; then
                 ((SYNCED++))
                 [[ "$current_ver" == "alpha15"* ]] && ((MIGRATED++))
+                # Update lastSynced timestamp
+                if [[ "$DRY_RUN" != "true" ]]; then
+                    update_project_last_synced "$i"
+                fi
             else
                 ((FAILED++))
             fi
@@ -831,11 +976,22 @@ for ((i=0; i<PROJECT_COUNT; i++)); do
         continue
     fi
 
+    # Check if project needs syncing (timestamp comparison)
+    if ! project_needs_sync "$i" "$HUB_TIMESTAMP"; then
+        log_uptodate "Project '$name' is up-to-date, skipping"
+        ((UP_TO_DATE++))
+        continue
+    fi
+
     # Sync the project
     current_ver=$(detect_bmad_version "$path")
     if sync_project "$name" "$path" "$ides"; then
         ((SYNCED++))
         [[ "$current_ver" == "alpha15"* ]] && ((MIGRATED++))
+        # Update lastSynced timestamp
+        if [[ "$DRY_RUN" != "true" ]]; then
+            update_project_last_synced "$i"
+        fi
     else
         ((FAILED++))
     fi
@@ -853,19 +1009,28 @@ echo -e "${CYAN}═════════════════════�
 echo -e "${CYAN}                         Summary                            ${NC}"
 echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
 echo ""
-echo -e "  ${GREEN}Synced:${NC}   $SYNCED"
-echo -e "  ${MAGENTA}Migrated:${NC} $MIGRATED"
-echo -e "  ${RED}Failed:${NC}   $FAILED"
-echo -e "  ${YELLOW}Skipped:${NC}  $SKIPPED"
+echo -e "  ${GREEN}Synced:${NC}     $SYNCED"
+echo -e "  ${CYAN}Up-to-date:${NC} $UP_TO_DATE"
+echo -e "  ${MAGENTA}Migrated:${NC}   $MIGRATED"
+echo -e "  ${RED}Failed:${NC}     $FAILED"
+echo -e "  ${YELLOW}Disabled:${NC}   $SKIPPED"
 echo ""
 
 if [[ "$DRY_RUN" == "true" ]]; then
     echo -e "${YELLOW}This was a dry run. Run without --dry-run to apply changes.${NC}"
 fi
 
+if [[ "$FORCE_SYNC" == "true" ]]; then
+    echo -e "${YELLOW}Force mode was used - all projects were synced regardless of timestamps.${NC}"
+fi
+
 if [[ $MIGRATED -gt 0 ]] && [[ "$DRY_RUN" != "true" ]]; then
     echo -e "${MAGENTA}Note: $MIGRATED project(s) were migrated from alpha.15 to alpha.19${NC}"
     echo "Check _bmad-backup/ in each project for the original files."
+fi
+
+if [[ $UP_TO_DATE -gt 0 ]] && [[ "$FORCE_SYNC" != "true" ]]; then
+    echo -e "${CYAN}Tip: Use --force to sync all projects regardless of timestamps.${NC}"
 fi
 
 if [[ $FAILED -gt 0 ]]; then

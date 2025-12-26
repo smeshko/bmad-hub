@@ -10,10 +10,12 @@
 #   - description: Brief description of the project
 #   - ides: List of IDEs to sync (defaults to all: claude-code, cursor, gemini)
 #          If specified, only those IDE folders will be copied
+#   - lastSynced: ISO timestamp of last successful sync (auto-updated by sync.sh)
 #
 # Usage:
-#   ./sync.sh           # Sync all enabled projects
+#   ./sync.sh           # Sync all enabled projects (skips up-to-date ones)
 #   ./sync.sh --dry-run # Preview changes without applying
+#   ./sync.sh --force   # Force sync all projects, ignoring timestamps
 #   ./sync.sh <name>    # Sync a specific project by name
 
 projects:
@@ -22,6 +24,7 @@ projects:
   #   path: /Users/A1E6E98/Developer/Projects/my-awesome-app
   #   enabled: true
   #   description: My main application project
+  #   lastSynced: null  # Auto-updated after sync
   #   ides:
   #     - claude-code
   #     - cursor
@@ -31,11 +34,22 @@ projects:
     path: /Users/A1E6E98/Developer/Projects/project-rulebook/project-rulebook-android
     enabled: true
     description: Project Rulebook Android app (alpha.15 -> alpha.19 migration)
-
-  - name: example-project
-    path: /Users/A1E6E98/Developer/Projects/example-project
-    enabled: false
-    description: Example entry - update path and enable when ready
+    lastSynced: "2025-12-25T07:37:05Z"
+  - name: project-rulebook-ios
+    path: /Users/A1E6E98/Developer/Projects/project-rulebook/project-rulebook-ios
+    enabled: true
+    description: Project Rulebook iOS
+    lastSynced: "2025-12-25T07:37:05Z"
+  - name: project-rulebook-be
+    path: /Users/A1E6E98/Developer/Projects/project-rulebook/project-rulebook-be
+    enabled: true
+    description: Project Rulebook Backend
+    lastSynced: "2025-12-25T07:48:46Z"
+  - name: project-rulebook-web
+    path: /Users/A1E6E98/Developer/Projects/project-rulebook/project-rulebook-landing-page
+    enabled: true
+    description: Project Rulebook Landing Page
+    lastSynced: null
 
 # Hub configuration
 hub:
@@ -46,9 +60,7 @@ hub:
     - README.md
     - .git
     - .DS_Store
-
   # Whether to create backup before overwriting existing BMAD installation
   backup_existing: true
-
   # Backup directory name pattern (relative to project root)
   backup_dir: _bmad-backup
