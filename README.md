@@ -93,15 +93,15 @@ The sync script copies:
 Additionally, the script:
 - Replaces `insert-project-name-here` with the project name in `_bmad/bmm/config.yaml`
 - Creates backups of existing installations (configurable)
-- **Automatically migrates** alpha.15 installations to alpha.19 format
+- **Automatically migrates** alpha.15 installations to alpha.20 format
 
-## Migration: Alpha.15 → Alpha.19
+## Migration: Alpha.15 → Alpha.20
 
 The sync script automatically detects and migrates older BMAD installations.
 
 ### What Changed Between Versions
 
-| Component | Alpha.15 | Alpha.19 |
+| Component | Alpha.15 | Alpha.20 |
 |-----------|----------|----------|
 | Main folder | `.bmad/` | `_bmad/` |
 | Config folder | `_cfg/` | `_config/` |
@@ -245,4 +245,4 @@ Use the `ides` field in project config to limit which IDE folders sync.
 
 ## Version
 
-Based on BMAD Method v6.0.0-alpha.19
+Based on BMAD Method v6.0.0-alpha.20

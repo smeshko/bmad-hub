@@ -33,7 +33,7 @@ projects:
   - name: project-rulebook-android
     path: /Users/A1E6E98/Developer/Projects/project-rulebook/project-rulebook-android
     enabled: true
-    description: Project Rulebook Android app (alpha.15 -> alpha.19 migration)
+    description: Project Rulebook Android app
     lastSynced: "2025-12-27T12:23:48Z"
   - name: project-rulebook-ios
     path: /Users/A1E6E98/Developer/Projects/project-rulebook/project-rulebook-ios

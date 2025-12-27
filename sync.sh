@@ -2,7 +2,7 @@
 #
 # BMAD Hub Sync Script
 # Synchronizes the BMAD system from this hub to all registered projects
-# Handles migration from alpha.15 (.bmad/_cfg) to alpha.19 (_bmad/_config)
+# Handles migration from alpha.15 (.bmad/_cfg) to alpha.20 (_bmad/_config)
 #
 # Usage:
 #   ./sync.sh              # Sync all enabled projects
@@ -72,7 +72,7 @@ while [[ $# -gt 0 ]]; do
             echo ""
             echo "Migration:"
             echo "  This script automatically detects and migrates alpha.15 installations"
-            echo "  (.bmad/_cfg) to alpha.19 format (_bmad/_config)."
+            echo "  (.bmad/_cfg) to alpha.20 format (_bmad/_config)."
             echo ""
             echo "  Preserved during migration:"
             echo "    - Custom agents (bmad-custom module)"
@@ -159,13 +159,13 @@ get_hub_modified_timestamp() {
     echo "$latest"
 }
 
-# Function to convert epoch seconds to ISO 8601 format
+# Function to convert epoch seconds to ISO 8601 format (local timezone)
 epoch_to_iso() {
     local epoch="$1"
     if [[ "$(uname)" == "Darwin" ]]; then
-        date -r "$epoch" -u +"%Y-%m-%dT%H:%M:%SZ"
+        date -r "$epoch" +"%Y-%m-%dT%H:%M:%S%z"
     else
-        date -d "@$epoch" -u +"%Y-%m-%dT%H:%M:%SZ"
+        date -d "@$epoch" +"%Y-%m-%dT%H:%M:%S%z"
     fi
 }
 
@@ -229,7 +229,7 @@ project_needs_sync() {
 }
 
 # Function to detect BMAD installation type
-# Returns: "alpha15" for .bmad/_cfg, "alpha19" for _bmad/_config, "none" for no installation
+# Returns: "alpha15" for .bmad/_cfg, "alpha20" for _bmad/_config, "none" for no installation
 detect_bmad_version() {
     local path="$1"
 
@@ -239,9 +239,9 @@ detect_bmad_version() {
         return
     fi
 
-    # Check for alpha.19 structure (_bmad with _config)
+    # Check for alpha.20 structure (_bmad with _config)
     if [[ -d "$path/_bmad" ]] && [[ -d "$path/_bmad/_config" ]]; then
-        echo "alpha19"
+        echo "alpha20"
         return
     fi
 
@@ -252,14 +252,14 @@ detect_bmad_version() {
     fi
 
     if [[ -d "$path/_bmad" ]]; then
-        echo "alpha19-partial"
+        echo "alpha20-partial"
         return
     fi
 
     echo "none"
 }
 
-# Function to migrate alpha.15 to alpha.19
+# Function to migrate alpha.15 to alpha.20
 migrate_alpha15() {
     local path="$1"
     local backup_dir="$2"
@@ -267,7 +267,7 @@ migrate_alpha15() {
     local backup_path="$path/$backup_dir/alpha15_$timestamp"
 
     echo ""
-    log_migrate "${MAGENTA}Migrating from alpha.15 to alpha.19...${NC}"
+    log_migrate "${MAGENTA}Migrating from alpha.15 to alpha.20...${NC}"
 
     if [[ "$DRY_RUN" == "true" ]]; then
         log "Would create backup at: $backup_path"
@@ -701,14 +701,14 @@ list_projects() {
                 "alpha15")
                     echo -e "    BMAD: ${YELLOW}alpha.15 (.bmad/_cfg) - needs migration${NC}"
                     ;;
-                "alpha19")
-                    echo -e "    BMAD: ${GREEN}alpha.19 (_bmad/_config)${NC}"
+                "alpha20")
+                    echo -e "    BMAD: ${GREEN}alpha.20 (_bmad/_config)${NC}"
                     ;;
                 "alpha15-partial")
                     echo -e "    BMAD: ${YELLOW}alpha.15 partial installation${NC}"
                     ;;
-                "alpha19-partial")
-                    echo -e "    BMAD: ${YELLOW}alpha.19 partial installation${NC}"
+                "alpha20-partial")
+                    echo -e "    BMAD: ${YELLOW}alpha.20 partial installation${NC}"
                     ;;
                 "none")
                     echo -e "    BMAD: ${BLUE}Not installed${NC}"
@@ -757,8 +757,8 @@ sync_project() {
             log_warning "Alpha.15 installation detected - migration required"
             migrate_alpha15 "$path" "$backup_dir"
             ;;
-        "alpha19"|"alpha19-partial")
-            # Backup existing alpha.19 installation
+        "alpha20"|"alpha20-partial")
+            # Backup existing alpha.20 installation
             if [[ "$backup_enabled" == "true" ]]; then
                 local backup_path="$path/$backup_dir"
                 local timestamp=$(date +%Y%m%d_%H%M%S)
@@ -904,7 +904,7 @@ sync_project() {
 # Main execution
 echo ""
 echo -e "${CYAN}╔═══════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║              BMAD Hub Sync Tool (v6 alpha.19)             ║${NC}"
+echo -e "${CYAN}║              BMAD Hub Sync Tool (v6 alpha.20)             ║${NC}"
 echo -e "${CYAN}╚═══════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -1028,7 +1028,7 @@ if [[ "$FORCE_SYNC" == "true" ]]; then
 fi
 
 if [[ $MIGRATED -gt 0 ]] && [[ "$DRY_RUN" != "true" ]]; then
-    echo -e "${MAGENTA}Note: $MIGRATED project(s) were migrated from alpha.15 to alpha.19${NC}"
+    echo -e "${MAGENTA}Note: $MIGRATED project(s) were migrated from alpha.15 to alpha.20${NC}"
     echo "Check _bmad-backup/ in each project for the original files."
 fi
 
