@@ -1,0 +1,10 @@
+# Project-specific output - should not be synced to other projects
+_bmad-output/
+
+# Backup folders created during sync
+_bmad-backup/
+
+# OS files
+.DS_Store
+
+.claude/settings*
