@@ -34,23 +34,22 @@ projects:
     path: /Users/A1E6E98/Developer/Projects/project-rulebook/project-rulebook-android
     enabled: true
     description: Project Rulebook Android app (alpha.15 -> alpha.19 migration)
-    lastSynced: "2025-12-25T07:37:05Z"
+    lastSynced: "2025-12-26T11:44:28Z"
   - name: project-rulebook-ios
     path: /Users/A1E6E98/Developer/Projects/project-rulebook/project-rulebook-ios
     enabled: true
     description: Project Rulebook iOS
-    lastSynced: "2025-12-25T07:37:05Z"
+    lastSynced: "2025-12-26T11:44:29Z"
   - name: project-rulebook-be
     path: /Users/A1E6E98/Developer/Projects/project-rulebook/project-rulebook-be
     enabled: true
     description: Project Rulebook Backend
-    lastSynced: "2025-12-25T07:48:46Z"
+    lastSynced: "2025-12-26T11:44:32Z"
   - name: project-rulebook-web
     path: /Users/A1E6E98/Developer/Projects/project-rulebook/project-rulebook-landing-page
     enabled: true
     description: Project Rulebook Landing Page
-    lastSynced: null
-
+    lastSynced: "2025-12-26T11:44:34Z"
 # Hub configuration
 hub:
   # Files/folders to exclude from sync (in addition to hub-specific files)
