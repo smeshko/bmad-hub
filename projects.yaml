@@ -34,22 +34,29 @@ projects:
     path: /Users/A1E6E98/Developer/Projects/project-rulebook/project-rulebook-android
     enabled: true
     description: Project Rulebook Android app
-    lastSynced: "2025-12-29T21:07:43Z"
+    lastSynced: "2025-12-30T07:02:54Z"
   - name: project-rulebook-ios
     path: /Users/A1E6E98/Developer/Projects/project-rulebook/project-rulebook-ios
     enabled: true
     description: Project Rulebook iOS
-    lastSynced: "2025-12-29T21:07:45Z"
+    lastSynced: "2025-12-30T07:02:56Z"
   - name: project-rulebook-be
     path: /Users/A1E6E98/Developer/Projects/project-rulebook/project-rulebook-be
     enabled: true
     description: Project Rulebook Backend
-    lastSynced: "2025-12-29T21:07:49Z"
+    lastSynced: "2025-12-30T07:02:59Z"
   - name: project-rulebook-web
     path: /Users/A1E6E98/Developer/Projects/project-rulebook/project-rulebook-landing-page
     enabled: true
     description: Project Rulebook Landing Page
-    lastSynced: "2025-12-29T21:07:53Z"
+    lastSynced: "2025-12-30T07:03:03Z"
+
+  - name: adw-sdk
+    path: /Users/A1E6E98/Developer/Projects/adw/adw-final
+    enabled: true
+    description: ADW SDK
+    lastSynced: null
+
 # Hub configuration
 hub:
   # Files/folders to exclude from sync (in addition to hub-specific files)
