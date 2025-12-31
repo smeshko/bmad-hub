@@ -37,8 +37,8 @@ cp "$YAML_FILE" "$YAML_FILE.bak"
 echo -e "${GREEN}✓ Backup created: $YAML_FILE.bak${NC}"
 
 # Apply fixes using sed
-# 1. Fix config path: .bmad -> _bmad
-sed -i '' 's|{project-root}/\.bmad|{project-root}/_bmad|g' "$YAML_FILE"
+# 1. Fix config path: _bmad -> _bmad
+sed -i '' 's|{project-root}/\_bmad|{project-root}/_bmad|g' "$YAML_FILE"
 
 # 2. Add implementation_artifacts if not present
 if ! grep -q "implementation_artifacts:" "$YAML_FILE"; then
@@ -67,7 +67,7 @@ fi
 echo -e "${GREEN}✓ Path segregation applied${NC}"
 echo ""
 echo "Changes made:"
-echo "  - Fixed .bmad -> _bmad in paths"
+echo "  - Fixed _bmad -> _bmad in paths"
 echo "  - Added implementation_artifacts variable"
 echo "  - Updated sprint_artifacts -> implementation_artifacts"
 echo "  - Added web_bundle: false"
