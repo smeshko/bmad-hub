@@ -50,13 +50,11 @@ projects:
     enabled: true
     description: Project Rulebook Landing Page
     lastSynced: "2025-12-30T07:03:03Z"
-
   - name: adw-sdk
     path: /Users/A1E6E98/Developer/Projects/adw/adw-final
     enabled: true
     description: ADW SDK
-    lastSynced: null
-
+    lastSynced: "2025-12-30T21:12:04Z"
 # Hub configuration
 hub:
   # Files/folders to exclude from sync (in addition to hub-specific files)
