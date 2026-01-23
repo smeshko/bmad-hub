@@ -136,7 +136,7 @@ log_uptodate() {
 # Scans _bmad/, .claude/commands/bmad/, .cursor/rules/bmad/, .gemini/commands/
 get_hub_modified_timestamp() {
     local latest=0
-    local dirs=("$HUB_DIR/_bmad" "$HUB_DIR/.claude/commands/bmad" "$HUB_DIR/.cursor/rules/bmad" "$HUB_DIR/.gemini/commands")
+    local dirs=("$HUB_DIR/_bmad" "$HUB_DIR/.claude/commands/bmad")
 
     for dir in "${dirs[@]}"; do
         if [[ -d "$dir" ]]; then
@@ -324,25 +324,6 @@ migrate_alpha15() {
         log_success "Backed up .claude/commands/bmad/"
     fi
 
-    if [[ -d "$path/.cursor/rules/bmad" ]]; then
-        mkdir -p "$backup_path/.cursor/rules"
-        cp -r "$path/.cursor/rules/bmad" "$backup_path/.cursor/rules/bmad"
-        log_success "Backed up .cursor/rules/bmad/"
-    fi
-
-    if [[ -d "$path/.gemini/commands" ]]; then
-        mkdir -p "$backup_path/.gemini"
-        # Only backup bmad-related files
-        for file in "$path/.gemini/commands"/bmad-*.toml; do
-            if [[ -f "$file" ]]; then
-                mkdir -p "$backup_path/.gemini/commands"
-                cp "$file" "$backup_path/.gemini/commands/"
-            fi
-        done
-        if [[ -d "$backup_path/.gemini/commands" ]]; then
-            log_success "Backed up .gemini/commands/bmad-*.toml"
-        fi
-    fi
 
     # Store paths to preserved content for later restoration
     PRESERVED_MEMORY=""
@@ -380,9 +361,6 @@ migrate_alpha15() {
 
     # Remove old IDE bmad folders (will be replaced)
     rm -rf "$path/.claude/commands/bmad" 2>/dev/null || true
-    rm -rf "$path/.cursor/rules/bmad" 2>/dev/null || true
-    # Remove old gemini bmad commands
-    rm -f "$path/.gemini/commands"/bmad-*.toml 2>/dev/null || true
 
     log_success "Alpha.15 migration backup complete"
     log "Backup location: $backup_path"
@@ -800,27 +778,23 @@ sync_project() {
 
     # Determine which IDE folders to sync
     local sync_claude=false
-    local sync_cursor=false
-    local sync_gemini=false
 
     if [[ "$ides" == "null" ]] || [[ -z "$ides" ]]; then
-        # Default: sync all
+        # Default: sync claude
         sync_claude=true
-        sync_cursor=true
-        sync_gemini=true
     else
         [[ "$ides" == *"claude-code"* ]] && sync_claude=true
-        [[ "$ides" == *"cursor"* ]] && sync_cursor=true
-        [[ "$ides" == *"gemini"* ]] && sync_gemini=true
     fi
 
     # Sync _bmad folder
     if [[ "$DRY_RUN" == "true" ]]; then
-        log "Would sync _bmad/ -> $path/_bmad/"
+        log "Would sync _bmad/ -> $path/_bmad/ (excluding bmb/)"
     else
         log "Syncing _bmad/..."
         cp -r "$HUB_DIR/_bmad" "$path/_bmad"
-        log_success "Synced _bmad/"
+        # Remove bmb module (not synced)
+        rm -rf "$path/_bmad/bmb"
+        log_success "Synced _bmad/ (excluding bmb/)"
     fi
 
     # Restore preserved content
@@ -832,39 +806,18 @@ sync_project() {
     # Sync IDE-specific folders
     if [[ "$sync_claude" == "true" ]]; then
         if [[ "$DRY_RUN" == "true" ]]; then
-            log "Would sync .claude/commands/bmad/ -> $path/.claude/commands/bmad/"
+            log "Would sync .claude/commands/bmad/ -> $path/.claude/commands/bmad/ (excluding bmb/)"
         else
             log "Syncing .claude/commands/bmad/..."
             mkdir -p "$path/.claude/commands"
             rm -rf "$path/.claude/commands/bmad"
             cp -r "$HUB_DIR/.claude/commands/bmad" "$path/.claude/commands/bmad"
-            log_success "Synced .claude/commands/bmad/"
+            # Remove bmb commands (not synced)
+            rm -rf "$path/.claude/commands/bmad/bmb"
+            log_success "Synced .claude/commands/bmad/ (excluding bmb/)"
         fi
     fi
 
-    if [[ "$sync_cursor" == "true" ]]; then
-        if [[ "$DRY_RUN" == "true" ]]; then
-            log "Would sync .cursor/rules/bmad/ -> $path/.cursor/rules/bmad/"
-        else
-            log "Syncing .cursor/rules/bmad/..."
-            mkdir -p "$path/.cursor/rules"
-            rm -rf "$path/.cursor/rules/bmad"
-            cp -r "$HUB_DIR/.cursor/rules/bmad" "$path/.cursor/rules/bmad"
-            log_success "Synced .cursor/rules/bmad/"
-        fi
-    fi
-
-    if [[ "$sync_gemini" == "true" ]]; then
-        if [[ "$DRY_RUN" == "true" ]]; then
-            log "Would sync .gemini/commands/ -> $path/.gemini/commands/"
-        else
-            log "Syncing .gemini/commands/..."
-            mkdir -p "$path/.gemini"
-            rm -rf "$path/.gemini/commands"
-            cp -r "$HUB_DIR/.gemini/commands" "$path/.gemini/commands"
-            log_success "Synced .gemini/commands/"
-        fi
-    fi
 
     # Replace project name placeholder
     local config_file="$path/_bmad/bmm/config.yaml"
