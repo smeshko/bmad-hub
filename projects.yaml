@@ -8,7 +8,9 @@
 #
 # Optional fields:
 #   - description: Brief description of the project
-#   - ides: List of IDEs to sync (defaults to all: claude-code, cursor, gemini)
+#   - modules: List of modules to sync (default: core + bmm)
+#              Available: core, bmm, bmb, cis, tea
+#   - ides: List of IDEs to sync (defaults to claude-code)
 #          If specified, only those IDE folders will be copied
 #   - lastSynced: ISO timestamp of last successful sync (auto-updated by sync.sh)
 #
@@ -24,12 +26,17 @@ projects:
   #   path: /Users/A1E6E98/Developer/Projects/my-awesome-app
   #   enabled: true
   #   description: My main application project
-  #   lastSynced: null  # Auto-updated after sync
+  #   modules:            # Optional: defaults to core + bmm
+  #     - core
+  #     - bmm
+  #     - tea
+  #   lastSynced: null    # Auto-updated after sync
   #   ides:
   #     - claude-code
-  #     - cursor
 
   # Add your projects below:
+
+  # Meeple
   - name: project-rulebook-android
     path: /Users/A1E6E98/Developer/Projects/project-rulebook/project-rulebook-android
     enabled: true
@@ -50,11 +57,43 @@ projects:
     enabled: true
     description: Project Rulebook Landing Page
     lastSynced: "2026-01-25T21:00:19Z"
+  # ADW
   - name: adw-sdk
     path: /Users/A1E6E98/Developer/Projects/adw/adw-final
     enabled: true
     description: ADW SDK
     lastSynced: "2026-01-25T21:00:20Z"
+  # Life organizer
+  - name: life-organizer-be
+    path: /Users/A1E6E98/Developer/Projects/life-organizer/life-organizer-be
+    enabled: true
+    description: Life organizer backend service
+    lastSynced: "2026-01-31T20:14:18Z"
+  - name: life-organizer-ios
+    path: /Users/A1E6E98/Developer/Projects/life-organizer/LifeOrganizeriOS
+    enabled: true
+    description: Life organizer iOS app
+    lastSynced: "2026-01-31T20:14:18Z"
+  - name: life-organizer-frontend
+    path: /Users/A1E6E98/Developer/Projects/life-organizer/life-organizer-frontend
+    enabled: true
+    description: Life organizer frontend
+    lastSynced: "2026-03-09T08:57:07Z"
+    # Project Scalpel
+  - name: project-scalpel
+    path: /Users/A1E6E98/Developer/Projects/kris-extractor/project-scalpel
+    enabled: true
+    description: Project Scalpel App
+    lastSynced: "2026-02-04T13:40:19Z"
+  # Future Ideas
+  - name: future-ideas
+    path: /Users/A1E6E98/Developer/future-ideas
+    enabled: true
+    description: Idea brainstorming and exploration
+    modules:
+      - core
+      - bmm
+      - cis
 # Hub configuration
 hub:
   # Files/folders to exclude from sync (in addition to hub-specific files)

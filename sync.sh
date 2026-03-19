@@ -2,7 +2,8 @@
 #
 # BMAD Hub Sync Script
 # Synchronizes the BMAD system from this hub to all registered projects
-# Handles migration from alpha.15 (.bmad/_cfg) to alpha.20 (_bmad/_config)
+# Supports v6.2.0 skills-based architecture (.claude/skills/)
+# Handles migration from legacy formats (alpha.15, alpha.20 commands-based)
 #
 # Usage:
 #   ./sync.sh              # Sync all enabled projects
@@ -26,6 +27,12 @@ NC='\033[0m' # No Color
 HUB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECTS_FILE="$HUB_DIR/projects.yaml"
 
+# Module-to-skill mapping (skills that belong to each module)
+# Skills not listed here are assumed to be core module skills
+BMB_SKILLS="bmad-agent-builder bmad-workflow-builder"
+CIS_SKILLS="bmad-cis-design-thinking bmad-cis-innovation-strategy bmad-cis-problem-solving bmad-cis-storytelling"
+TEA_SKILLS="bmad-teach-me-testing bmad-testarch-atdd bmad-testarch-automate bmad-testarch-ci bmad-testarch-framework bmad-testarch-nfr bmad-testarch-test-design bmad-testarch-test-review bmad-testarch-trace"
+
 # Flags
 DRY_RUN=false
 FORCE_SYNC=false
@@ -48,7 +55,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --help|-h)
-            echo "BMAD Hub Sync Script"
+            echo "BMAD Hub Sync Script (v6.2.0)"
             echo ""
             echo "Usage:"
             echo "  ./sync.sh              Sync projects that need updating"
@@ -64,6 +71,15 @@ while [[ $# -gt 0 ]]; do
             echo "  -l, --list       List all projects in projects.yaml"
             echo "  -h, --help       Show this help message"
             echo ""
+            echo "Per-project module selection:"
+            echo "  Each project in projects.yaml can specify a 'modules' list to control"
+            echo "  which modules are synced. Default: core + bmm (no bmb/cis/tea)."
+            echo "  Example:"
+            echo "    modules:"
+            echo "      - core"
+            echo "      - bmm"
+            echo "      - tea"
+            echo ""
             echo "Timestamp-based syncing:"
             echo "  The sync script tracks when each project was last synced."
             echo "  It compares this against the hub's latest modification time"
@@ -71,14 +87,14 @@ while [[ $# -gt 0 ]]; do
             echo "  Use --force to sync regardless of timestamps."
             echo ""
             echo "Migration:"
-            echo "  This script automatically detects and migrates alpha.15 installations"
-            echo "  (.bmad/_cfg) to alpha.20 format (_bmad/_config)."
+            echo "  This script automatically detects and migrates legacy installations:"
+            echo "    - alpha.15 (.bmad/_cfg) -> v6.2 (_bmad/_config + .claude/skills/)"
+            echo "    - alpha.20 (.claude/commands/) -> v6.2 (.claude/skills/)"
             echo ""
             echo "  Preserved during migration:"
             echo "    - Custom agents (bmad-custom module)"
-            echo "    - Agent memory (.bmad-user-memory or .bmad/_memory)"
+            echo "    - Agent memory (_bmad/_memory)"
             echo "    - Custom agent customization files"
-            echo "    - Project-specific hooks and ADW commands"
             exit 0
             ;;
         *)
@@ -133,20 +149,17 @@ log_uptodate() {
 }
 
 # Function to get the hub's latest modification timestamp (seconds since epoch)
-# Scans _bmad/, .claude/commands/bmad/, .cursor/rules/bmad/, .gemini/commands/
+# Scans _bmad/ and .claude/skills/
 get_hub_modified_timestamp() {
     local latest=0
-    local dirs=("$HUB_DIR/_bmad" "$HUB_DIR/.claude/commands/bmad")
+    local dirs=("$HUB_DIR/_bmad" "$HUB_DIR/.claude/skills")
 
     for dir in "${dirs[@]}"; do
         if [[ -d "$dir" ]]; then
-            # Find the most recently modified file in this directory
             local dir_latest
             if [[ "$(uname)" == "Darwin" ]]; then
-                # macOS: use stat -f %m for modification time
                 dir_latest=$(find "$dir" -type f -exec stat -f %m {} \; 2>/dev/null | sort -rn | head -1)
             else
-                # Linux: use stat -c %Y
                 dir_latest=$(find "$dir" -type f -exec stat -c %Y {} \; 2>/dev/null | sort -rn | head -1)
             fi
 
@@ -177,8 +190,6 @@ iso_to_epoch() {
         return
     fi
     if [[ "$(uname)" == "Darwin" ]]; then
-        # macOS date doesn't handle Z timezone suffix properly
-        # Strip Z and use -u flag to parse as UTC
         local iso_no_z="${iso%Z}"
         TZ=UTC date -j -f "%Y-%m-%dT%H:%M:%S" "$iso_no_z" +%s 2>/dev/null || echo "0"
     else
@@ -197,39 +208,73 @@ get_project_last_synced() {
 update_project_last_synced() {
     local index="$1"
     local timestamp=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
     yq -i ".projects[$index].lastSynced = \"$timestamp\"" "$PROJECTS_FILE"
 }
 
 # Function to check if a project needs syncing
-# Returns 0 (true) if sync needed, 1 (false) if up-to-date
 project_needs_sync() {
     local index="$1"
     local hub_timestamp="$2"
 
-    # If force sync is enabled, always return true
     if [[ "$FORCE_SYNC" == "true" ]]; then
         return 0
     fi
 
     local project_last_synced=$(get_project_last_synced "$index")
 
-    # If never synced (0), needs sync
     if [[ "$project_last_synced" -eq 0 ]]; then
         return 0
     fi
 
-    # If hub is newer than last sync, needs sync
     if [[ "$hub_timestamp" -gt "$project_last_synced" ]]; then
         return 0
     fi
 
-    # Up to date
+    return 1
+}
+
+# Function to check if a skill belongs to a module
+skill_belongs_to_module() {
+    local skill_name="$1"
+    local module="$2"
+
+    case "$module" in
+        bmb)
+            [[ " $BMB_SKILLS " == *" $skill_name "* ]] && return 0
+            ;;
+        cis)
+            [[ " $CIS_SKILLS " == *" $skill_name "* ]] && return 0
+            ;;
+        tea)
+            [[ " $TEA_SKILLS " == *" $skill_name "* ]] && return 0
+            ;;
+    esac
+    return 1
+}
+
+# Function to check if a module should be synced for a project
+should_sync_module() {
+    local module="$1"
+    local modules_csv="$2"
+
+    # core is always synced
+    if [[ "$module" == "core" ]]; then
+        return 0
+    fi
+
+    # If no modules specified, default to core + bmm only
+    if [[ -z "$modules_csv" ]] || [[ "$modules_csv" == "null" ]]; then
+        [[ "$module" == "bmm" ]] && return 0
+        return 1
+    fi
+
+    # Check if module is in the list
+    [[ " $modules_csv " == *" $module "* ]] && return 0
     return 1
 }
 
 # Function to detect BMAD installation type
-# Returns: "alpha15" for .bmad/_cfg, "alpha20" for _bmad/_config, "none" for no installation
+# Returns: "alpha15", "alpha20-commands", "v6-skills", "alpha20-partial", "none"
 detect_bmad_version() {
     local path="$1"
 
@@ -239,7 +284,19 @@ detect_bmad_version() {
         return
     fi
 
-    # Check for alpha.20 structure (_bmad with _config)
+    # Check for v6.2 skills-based structure
+    if [[ -d "$path/_bmad" ]] && [[ -d "$path/_bmad/_config" ]] && [[ -d "$path/.claude/skills" ]]; then
+        echo "v6-skills"
+        return
+    fi
+
+    # Check for alpha.20 commands-based structure
+    if [[ -d "$path/_bmad" ]] && [[ -d "$path/_bmad/_config" ]] && [[ -d "$path/.claude/commands/bmad" ]]; then
+        echo "alpha20-commands"
+        return
+    fi
+
+    # Check for alpha.20 structure without IDE folders
     if [[ -d "$path/_bmad" ]] && [[ -d "$path/_bmad/_config" ]]; then
         echo "alpha20"
         return
@@ -259,7 +316,7 @@ detect_bmad_version() {
     echo "none"
 }
 
-# Function to migrate alpha.15 to alpha.20
+# Function to migrate alpha.15 to current format
 migrate_alpha15() {
     local path="$1"
     local backup_dir="$2"
@@ -267,105 +324,67 @@ migrate_alpha15() {
     local backup_path="$path/$backup_dir/alpha15_$timestamp"
 
     echo ""
-    log_migrate "${MAGENTA}Migrating from alpha.15 to alpha.20...${NC}"
+    log_migrate "${MAGENTA}Migrating from alpha.15...${NC}"
 
     if [[ "$DRY_RUN" == "true" ]]; then
         log "Would create backup at: $backup_path"
         log "Would backup: .bmad/ -> $backup_path/.bmad/"
-
-        if [[ -d "$path/.bmad-user-memory" ]]; then
-            log "Would preserve: .bmad-user-memory/ -> _bmad/_memory/"
-        fi
-
-        if [[ -d "$path/.bmad/_memory" ]]; then
-            log "Would preserve: .bmad/_memory/ -> _bmad/_memory/"
-        fi
-
-        if [[ -d "$path/.bmad/bmad-custom" ]]; then
-            log "Would preserve: .bmad/bmad-custom/ -> _bmad/bmad-custom/"
-        fi
-
-        if [[ -d "$path/bmad-custom-src" ]]; then
-            log "Would preserve: bmad-custom-src/ (kept in place)"
-        fi
-
-        # Check for custom agent customizations
-        if [[ -d "$path/.bmad/_cfg/agents" ]]; then
-            local custom_agents=$(find "$path/.bmad/_cfg/agents" -name "bmad-custom-*.customize.yaml" 2>/dev/null | wc -l | tr -d ' ')
-            if [[ "$custom_agents" -gt 0 ]]; then
-                log "Would preserve: $custom_agents custom agent customization file(s)"
-            fi
-        fi
-
-        log "Would remove: .bmad/ (after backup)"
+        [[ -d "$path/.bmad-user-memory" ]] && log "Would preserve: .bmad-user-memory/ -> _bmad/_memory/"
+        [[ -d "$path/.bmad/_memory" ]] && log "Would preserve: .bmad/_memory/ -> _bmad/_memory/"
+        [[ -d "$path/.bmad/bmad-custom" ]] && log "Would preserve: .bmad/bmad-custom/ -> _bmad/bmad-custom/"
+        log "Would remove: .bmad/ and .claude/commands/bmad/ (after backup)"
         return 0
     fi
 
-    # Create backup directory
     mkdir -p "$backup_path"
     log "Created backup directory: $backup_path"
 
-    # Backup entire .bmad folder
-    log "Backing up .bmad/..."
     cp -r "$path/.bmad" "$backup_path/.bmad"
     log_success "Backed up .bmad/"
 
-    # Backup .bmad-user-memory if exists
     if [[ -d "$path/.bmad-user-memory" ]]; then
-        log "Backing up .bmad-user-memory/..."
         cp -r "$path/.bmad-user-memory" "$backup_path/.bmad-user-memory"
         log_success "Backed up .bmad-user-memory/"
     fi
 
-    # Backup old IDE command folders
     if [[ -d "$path/.claude/commands/bmad" ]]; then
         mkdir -p "$backup_path/.claude/commands"
         cp -r "$path/.claude/commands/bmad" "$backup_path/.claude/commands/bmad"
         log_success "Backed up .claude/commands/bmad/"
     fi
 
-
     # Store paths to preserved content for later restoration
     PRESERVED_MEMORY=""
     PRESERVED_CUSTOM_MODULE=""
     PRESERVED_CUSTOM_AGENTS=()
 
-    # Identify content to preserve
     if [[ -d "$path/.bmad-user-memory" ]]; then
         PRESERVED_MEMORY="$path/.bmad-user-memory"
     elif [[ -d "$path/.bmad/_memory" ]]; then
         PRESERVED_MEMORY="$backup_path/.bmad/_memory"
     fi
 
-    if [[ -d "$path/.bmad/bmad-custom" ]]; then
-        PRESERVED_CUSTOM_MODULE="$backup_path/.bmad/bmad-custom"
-    fi
+    [[ -d "$path/.bmad/bmad-custom" ]] && PRESERVED_CUSTOM_MODULE="$backup_path/.bmad/bmad-custom"
 
-    # Find custom agent customization files
     if [[ -d "$path/.bmad/_cfg/agents" ]]; then
         while IFS= read -r -d '' file; do
             PRESERVED_CUSTOM_AGENTS+=("$file")
         done < <(find "$backup_path/.bmad/_cfg/agents" -name "bmad-custom-*.customize.yaml" -print0 2>/dev/null)
     fi
 
-    # Remove old structure
-    log "Removing old .bmad/ structure..."
     rm -rf "$path/.bmad"
     log_success "Removed old .bmad/"
 
-    # Remove old .bmad-user-memory (will be restored to new location)
     if [[ -d "$path/.bmad-user-memory" ]]; then
         rm -rf "$path/.bmad-user-memory"
         log_success "Removed old .bmad-user-memory/ (will restore to _bmad/_memory/)"
     fi
 
-    # Remove old IDE bmad folders (will be replaced)
     rm -rf "$path/.claude/commands/bmad" 2>/dev/null || true
 
     log_success "Alpha.15 migration backup complete"
     log "Backup location: $backup_path"
 
-    # Export preserved paths for use in sync
     export PRESERVED_MEMORY
     export PRESERVED_CUSTOM_MODULE
     export PRESERVED_CUSTOM_AGENTS
@@ -379,12 +398,10 @@ migrate_docs_artifacts() {
     local backup_dir="$2"
     local timestamp=$(date +%Y%m%d_%H%M%S)
 
-    # Check if docs folder exists and has BMAD artifacts
     if [[ ! -d "$path/docs" ]]; then
         return 0
     fi
 
-    # Check for any BMAD artifacts in docs/
     local has_artifacts=false
     [[ -f "$path/docs/prd.md" ]] && has_artifacts=true
     [[ -f "$path/docs/architecture.md" ]] && has_artifacts=true
@@ -399,7 +416,6 @@ migrate_docs_artifacts() {
     echo ""
     log_migrate "Migrating docs artifacts to _bmad-output/..."
 
-    # Create output directories
     local planning_dir="$path/_bmad-output/project-planning-artifacts"
     local impl_dir="$path/_bmad-output/implementation-artifacts"
 
@@ -411,72 +427,13 @@ migrate_docs_artifacts() {
         mkdir -p "$impl_dir"
     fi
 
-    # Backup docs before migration
     local docs_backup="$path/$backup_dir/docs_artifacts_$timestamp"
-    if [[ "$DRY_RUN" == "true" ]]; then
-        log "Would backup docs artifacts to: $docs_backup"
-    else
+    if [[ "$DRY_RUN" != "true" ]]; then
         mkdir -p "$docs_backup"
     fi
 
-    # === PLANNING ARTIFACTS ===
-    # PRD
-    if [[ -f "$path/docs/prd.md" ]]; then
-        if [[ "$DRY_RUN" == "true" ]]; then
-            log "Would move: docs/prd.md -> _bmad-output/project-planning-artifacts/"
-        else
-            cp "$path/docs/prd.md" "$docs_backup/"
-            mv "$path/docs/prd.md" "$planning_dir/"
-            log_success "Moved prd.md to planning artifacts"
-        fi
-    fi
-
-    # Architecture
-    if [[ -f "$path/docs/architecture.md" ]]; then
-        if [[ "$DRY_RUN" == "true" ]]; then
-            log "Would move: docs/architecture.md -> _bmad-output/project-planning-artifacts/"
-        else
-            cp "$path/docs/architecture.md" "$docs_backup/"
-            mv "$path/docs/architecture.md" "$planning_dir/"
-            log_success "Moved architecture.md to planning artifacts"
-        fi
-    fi
-
-    # UX Design
-    if [[ -f "$path/docs/ux-design-specification.md" ]]; then
-        if [[ "$DRY_RUN" == "true" ]]; then
-            log "Would move: docs/ux-design-specification.md -> _bmad-output/project-planning-artifacts/"
-        else
-            cp "$path/docs/ux-design-specification.md" "$docs_backup/"
-            mv "$path/docs/ux-design-specification.md" "$planning_dir/"
-            log_success "Moved ux-design-specification.md to planning artifacts"
-        fi
-    fi
-
-    # Epics folder
-    if [[ -d "$path/docs/epics" ]]; then
-        if [[ "$DRY_RUN" == "true" ]]; then
-            log "Would move: docs/epics/ -> _bmad-output/project-planning-artifacts/epics/"
-        else
-            cp -r "$path/docs/epics" "$docs_backup/"
-            mv "$path/docs/epics" "$planning_dir/"
-            log_success "Moved epics/ to planning artifacts"
-        fi
-    fi
-
-    # Analysis folder
-    if [[ -d "$path/docs/analysis" ]]; then
-        if [[ "$DRY_RUN" == "true" ]]; then
-            log "Would move: docs/analysis/ -> _bmad-output/project-planning-artifacts/analysis/"
-        else
-            cp -r "$path/docs/analysis" "$docs_backup/"
-            mv "$path/docs/analysis" "$planning_dir/"
-            log_success "Moved analysis/ to planning artifacts"
-        fi
-    fi
-
-    # Product brief files (pattern: product-brief*.md)
-    for file in "$path/docs"/product-brief*.md; do
+    # Planning artifacts
+    for file in "$path/docs"/prd.md "$path/docs"/architecture.md "$path/docs"/ux-design-specification.md; do
         if [[ -f "$file" ]]; then
             local filename=$(basename "$file")
             if [[ "$DRY_RUN" == "true" ]]; then
@@ -489,8 +446,20 @@ migrate_docs_artifacts() {
         fi
     done
 
-    # Tech spec files (pattern: tech-spec*.md)
-    for file in "$path/docs"/tech-spec*.md; do
+    for dir in "$path/docs/epics" "$path/docs/analysis"; do
+        if [[ -d "$dir" ]]; then
+            local dirname=$(basename "$dir")
+            if [[ "$DRY_RUN" == "true" ]]; then
+                log "Would move: docs/$dirname/ -> _bmad-output/project-planning-artifacts/$dirname/"
+            else
+                cp -r "$dir" "$docs_backup/"
+                mv "$dir" "$planning_dir/"
+                log_success "Moved $dirname/ to planning artifacts"
+            fi
+        fi
+    done
+
+    for file in "$path/docs"/product-brief*.md "$path/docs"/tech-spec*.md; do
         if [[ -f "$file" ]]; then
             local filename=$(basename "$file")
             if [[ "$DRY_RUN" == "true" ]]; then
@@ -503,14 +472,12 @@ migrate_docs_artifacts() {
         fi
     done
 
-    # === IMPLEMENTATION ARTIFACTS ===
-    # Sprint artifacts folder
+    # Implementation artifacts
     if [[ -d "$path/docs/sprint-artifacts" ]]; then
         if [[ "$DRY_RUN" == "true" ]]; then
             log "Would move: docs/sprint-artifacts/ -> _bmad-output/implementation-artifacts/"
         else
             cp -r "$path/docs/sprint-artifacts" "$docs_backup/"
-            # Move contents, not the folder itself (to flatten structure)
             mkdir -p "$impl_dir"
             mv "$path/docs/sprint-artifacts"/* "$impl_dir/" 2>/dev/null || true
             rmdir "$path/docs/sprint-artifacts" 2>/dev/null || rm -rf "$path/docs/sprint-artifacts"
@@ -518,7 +485,6 @@ migrate_docs_artifacts() {
         fi
     fi
 
-    # Stories folder (if separate from sprint-artifacts)
     if [[ -d "$path/docs/stories" ]]; then
         if [[ "$DRY_RUN" == "true" ]]; then
             log "Would move: docs/stories/ -> _bmad-output/implementation-artifacts/stories/"
@@ -529,7 +495,6 @@ migrate_docs_artifacts() {
         fi
     fi
 
-    # Sprint status file
     if [[ -f "$path/docs/sprint-status.yaml" ]]; then
         if [[ "$DRY_RUN" == "true" ]]; then
             log "Would move: docs/sprint-status.yaml -> _bmad-output/implementation-artifacts/"
@@ -540,7 +505,6 @@ migrate_docs_artifacts() {
         fi
     fi
 
-    # BMM workflow status file
     if [[ -f "$path/docs/bmm-workflow-status.yaml" ]]; then
         if [[ "$DRY_RUN" == "true" ]]; then
             log "Would move: docs/bmm-workflow-status.yaml -> _bmad-output/"
@@ -551,7 +515,7 @@ migrate_docs_artifacts() {
         fi
     fi
 
-    # Clean up empty docs backup if nothing was backed up
+    # Clean up empty docs backup
     if [[ "$DRY_RUN" != "true" ]] && [[ -d "$docs_backup" ]]; then
         if [[ -z "$(ls -A "$docs_backup" 2>/dev/null)" ]]; then
             rmdir "$docs_backup"
@@ -568,7 +532,6 @@ migrate_docs_artifacts() {
 restore_preserved_content() {
     local path="$1"
 
-    # Restore agent memory
     if [[ -n "$PRESERVED_MEMORY" ]] && [[ -d "$PRESERVED_MEMORY" ]]; then
         log "Restoring agent memory to _bmad/_memory/..."
         if [[ "$DRY_RUN" != "true" ]]; then
@@ -580,7 +543,6 @@ restore_preserved_content() {
         fi
     fi
 
-    # Restore custom module
     if [[ -n "$PRESERVED_CUSTOM_MODULE" ]] && [[ -d "$PRESERVED_CUSTOM_MODULE" ]]; then
         log "Restoring custom module to _bmad/bmad-custom/..."
         if [[ "$DRY_RUN" != "true" ]]; then
@@ -591,14 +553,11 @@ restore_preserved_content() {
         fi
     fi
 
-    # Restore custom agent customization files
     if [[ ${#PRESERVED_CUSTOM_AGENTS[@]} -gt 0 ]]; then
         log "Restoring ${#PRESERVED_CUSTOM_AGENTS[@]} custom agent customization file(s)..."
         if [[ "$DRY_RUN" != "true" ]]; then
             for file in "${PRESERVED_CUSTOM_AGENTS[@]}"; do
-                if [[ -f "$file" ]]; then
-                    cp "$file" "$path/_bmad/_config/agents/"
-                fi
+                [[ -f "$file" ]] && cp "$file" "$path/_bmad/_config/agents/"
             done
             log_success "Restored custom agent customizations"
         else
@@ -606,11 +565,9 @@ restore_preserved_content() {
         fi
     fi
 
-    # Update manifest to include bmad-custom if it was restored
     if [[ -n "$PRESERVED_CUSTOM_MODULE" ]] && [[ -d "$path/_bmad/bmad-custom" ]]; then
         local manifest="$path/_bmad/_config/manifest.yaml"
         if [[ -f "$manifest" ]] && [[ "$DRY_RUN" != "true" ]]; then
-            # Check if bmad-custom is already in modules
             if ! grep -q "bmad-custom" "$manifest"; then
                 log "Adding bmad-custom to manifest..."
                 if [[ "$(uname)" == "Darwin" ]]; then
@@ -631,7 +588,6 @@ list_projects() {
     echo -e "${CYAN}═══════════════════════════════════════════════════════════${NC}"
     echo ""
 
-    # Get hub modification timestamp
     local hub_timestamp=$(get_hub_modified_timestamp)
     local hub_iso=$(epoch_to_iso "$hub_timestamp")
     echo -e "Hub last modified: ${BLUE}$hub_iso${NC}"
@@ -650,6 +606,7 @@ list_projects() {
         local enabled=$(yq ".projects[$i].enabled" "$PROJECTS_FILE")
         local desc=$(yq ".projects[$i].description // \"\"" "$PROJECTS_FILE")
         local last_synced=$(yq ".projects[$i].lastSynced // null" "$PROJECTS_FILE")
+        local modules=$(yq ".projects[$i].modules // null" "$PROJECTS_FILE")
 
         if [[ "$enabled" == "true" ]]; then
             echo -e "${GREEN}●${NC} ${name}"
@@ -659,6 +616,14 @@ list_projects() {
         echo "    Path: $proj_path"
         if [[ -n "$desc" && "$desc" != "null" ]]; then
             echo "    Description: $desc"
+        fi
+
+        # Show modules
+        if [[ "$modules" != "null" ]] && [[ -n "$modules" ]]; then
+            local mod_list=$(yq ".projects[$i].modules[]" "$PROJECTS_FILE" 2>/dev/null | tr '\n' ', ' | sed 's/,$//')
+            echo -e "    Modules: ${BLUE}$mod_list${NC}"
+        else
+            echo -e "    Modules: ${BLUE}core, bmm${NC} (default)"
         fi
 
         # Show lastSynced and sync status
@@ -679,14 +644,17 @@ list_projects() {
                 "alpha15")
                     echo -e "    BMAD: ${YELLOW}alpha.15 (.bmad/_cfg) - needs migration${NC}"
                     ;;
+                "alpha20-commands")
+                    echo -e "    BMAD: ${YELLOW}alpha.20 (.claude/commands) - needs migration to skills${NC}"
+                    ;;
+                "v6-skills")
+                    echo -e "    BMAD: ${GREEN}v6.2 (skills-based)${NC}"
+                    ;;
                 "alpha20")
-                    echo -e "    BMAD: ${GREEN}alpha.20 (_bmad/_config)${NC}"
+                    echo -e "    BMAD: ${YELLOW}alpha.20 (_bmad/_config)${NC}"
                     ;;
-                "alpha15-partial")
-                    echo -e "    BMAD: ${YELLOW}alpha.15 partial installation${NC}"
-                    ;;
-                "alpha20-partial")
-                    echo -e "    BMAD: ${YELLOW}alpha.20 partial installation${NC}"
+                "alpha15-partial"|"alpha20-partial")
+                    echo -e "    BMAD: ${YELLOW}partial installation${NC}"
                     ;;
                 "none")
                     echo -e "    BMAD: ${BLUE}Not installed${NC}"
@@ -704,6 +672,7 @@ sync_project() {
     local name="$1"
     local path="$2"
     local ides="$3"
+    local modules_csv="$4"
 
     echo ""
     echo -e "${CYAN}───────────────────────────────────────────────────────────${NC}"
@@ -716,13 +685,17 @@ sync_project() {
         return 1
     fi
 
-    # Check if backup is enabled
     local backup_enabled=$(yq '.hub.backup_existing // true' "$PROJECTS_FILE")
     local backup_dir=$(yq '.hub.backup_dir // "_bmad-backup"' "$PROJECTS_FILE")
 
-    # Detect current BMAD version
     local current_version=$(detect_bmad_version "$path")
     log "Detected BMAD installation: $current_version"
+
+    if [[ -n "$modules_csv" ]] && [[ "$modules_csv" != "null" ]]; then
+        log "Modules to sync: $modules_csv"
+    else
+        log "Modules to sync: core bmm (default)"
+    fi
 
     # Reset preserved content variables
     PRESERVED_MEMORY=""
@@ -735,8 +708,8 @@ sync_project() {
             log_warning "Alpha.15 installation detected - migration required"
             migrate_alpha15 "$path" "$backup_dir"
             ;;
-        "alpha20"|"alpha20-partial")
-            # Backup existing alpha.20 installation
+        "alpha20-commands"|"alpha20"|"alpha20-partial"|"v6-skills")
+            # Backup existing installation
             if [[ "$backup_enabled" == "true" ]]; then
                 local backup_path="$path/$backup_dir"
                 local timestamp=$(date +%Y%m%d_%H%M%S)
@@ -751,14 +724,9 @@ sync_project() {
                     log_success "Backup created: $backup_target"
                 fi
 
-                # Preserve memory and custom content from current installation
-                if [[ -d "$path/_bmad/_memory" ]]; then
-                    PRESERVED_MEMORY="$backup_target/_memory"
-                fi
-                if [[ -d "$path/_bmad/bmad-custom" ]]; then
-                    PRESERVED_CUSTOM_MODULE="$backup_target/bmad-custom"
-                fi
-                # Find custom agent files
+                # Preserve memory and custom content
+                [[ -d "$path/_bmad/_memory" ]] && PRESERVED_MEMORY="$backup_target/_memory"
+                [[ -d "$path/_bmad/bmad-custom" ]] && PRESERVED_CUSTOM_MODULE="$backup_target/bmad-custom"
                 if [[ -d "$path/_bmad/_config/agents" ]]; then
                     while IFS= read -r -d '' file; do
                         PRESERVED_CUSTOM_AGENTS+=("$file")
@@ -769,6 +737,8 @@ sync_project() {
             # Remove old installation
             if [[ "$DRY_RUN" != "true" ]]; then
                 rm -rf "$path/_bmad"
+                # Clean up legacy IDE folders
+                rm -rf "$path/.claude/commands/bmad" 2>/dev/null || true
             fi
             ;;
         "none")
@@ -780,21 +750,37 @@ sync_project() {
     local sync_claude=false
 
     if [[ "$ides" == "null" ]] || [[ -z "$ides" ]]; then
-        # Default: sync claude
         sync_claude=true
     else
         [[ "$ides" == *"claude-code"* ]] && sync_claude=true
     fi
 
-    # Sync _bmad folder
+    # === Sync _bmad folder (module-aware) ===
     if [[ "$DRY_RUN" == "true" ]]; then
-        log "Would sync _bmad/ -> $path/_bmad/ (excluding bmb/)"
+        log "Would sync _bmad/ -> $path/_bmad/"
     else
         log "Syncing _bmad/..."
-        cp -r "$HUB_DIR/_bmad" "$path/_bmad"
-        # Remove bmb module (not synced)
-        rm -rf "$path/_bmad/bmb"
-        log_success "Synced _bmad/ (excluding bmb/)"
+        # Copy core first (always)
+        mkdir -p "$path/_bmad"
+        cp -r "$HUB_DIR/_bmad/_config" "$path/_bmad/_config"
+        cp -r "$HUB_DIR/_bmad/core" "$path/_bmad/core"
+        log_success "Synced _bmad/core/"
+
+        # Sync each module based on project config
+        for module_dir in "$HUB_DIR/_bmad"/*/; do
+            local module_name=$(basename "$module_dir")
+            # Skip _config, _memory, core (already copied)
+            [[ "$module_name" == "_config" ]] && continue
+            [[ "$module_name" == "_memory" ]] && continue
+            [[ "$module_name" == "core" ]] && continue
+
+            if should_sync_module "$module_name" "$modules_csv"; then
+                cp -r "$module_dir" "$path/_bmad/$module_name"
+                log_success "Synced _bmad/$module_name/"
+            else
+                log "Skipped _bmad/$module_name/ (not in project modules)"
+            fi
+        done
     fi
 
     # Restore preserved content
@@ -803,21 +789,45 @@ sync_project() {
     # Migrate docs artifacts to new _bmad-output structure
     migrate_docs_artifacts "$path" "$backup_dir"
 
-    # Sync IDE-specific folders
+    # === Sync .claude/skills/ (module-aware) ===
     if [[ "$sync_claude" == "true" ]]; then
         if [[ "$DRY_RUN" == "true" ]]; then
-            log "Would sync .claude/commands/bmad/ -> $path/.claude/commands/bmad/ (excluding bmb/)"
+            log "Would sync .claude/skills/ -> $path/.claude/skills/"
         else
-            log "Syncing .claude/commands/bmad/..."
-            mkdir -p "$path/.claude/commands"
-            rm -rf "$path/.claude/commands/bmad"
-            cp -r "$HUB_DIR/.claude/commands/bmad" "$path/.claude/commands/bmad"
-            # Remove bmb commands (not synced)
-            rm -rf "$path/.claude/commands/bmad/bmb"
-            log_success "Synced .claude/commands/bmad/ (excluding bmb/)"
+            log "Syncing .claude/skills/..."
+            mkdir -p "$path/.claude/skills"
+            # Remove old bmad skills (will be replaced)
+            rm -rf "$path/.claude/skills"/bmad-* 2>/dev/null || true
+
+            local synced_count=0
+            local skipped_count=0
+
+            for skill_dir in "$HUB_DIR/.claude/skills"/bmad-*/; do
+                local skill_name=$(basename "$skill_dir")
+                local skip=false
+
+                # Check if skill belongs to an excluded module
+                if ! should_sync_module "bmb" "$modules_csv" && skill_belongs_to_module "$skill_name" "bmb"; then
+                    skip=true
+                fi
+                if ! should_sync_module "cis" "$modules_csv" && skill_belongs_to_module "$skill_name" "cis"; then
+                    skip=true
+                fi
+                if ! should_sync_module "tea" "$modules_csv" && skill_belongs_to_module "$skill_name" "tea"; then
+                    skip=true
+                fi
+
+                if [[ "$skip" == "true" ]]; then
+                    ((skipped_count++))
+                else
+                    cp -r "$skill_dir" "$path/.claude/skills/$skill_name"
+                    ((synced_count++))
+                fi
+            done
+
+            log_success "Synced $synced_count skills (skipped $skipped_count from excluded modules)"
         fi
     fi
-
 
     # Replace project name placeholder
     local config_file="$path/_bmad/bmm/config.yaml"
@@ -827,10 +837,8 @@ sync_project() {
         else
             log "Updating project name in config.yaml..."
             if [[ "$(uname)" == "Darwin" ]]; then
-                # macOS
                 sed -i '' "s/insert-project-name-here/$name/g" "$config_file"
             else
-                # Linux
                 sed -i "s/insert-project-name-here/$name/g" "$config_file"
             fi
             log_success "Updated project name to: $name"
@@ -851,13 +859,20 @@ sync_project() {
         echo "    - Review the backup if you need to recover anything"
     fi
 
+    if [[ "$current_version" == "alpha20-commands" ]]; then
+        echo ""
+        log_warning "Migrated from commands to skills:"
+        echo "    - Old .claude/commands/bmad/ has been removed"
+        echo "    - New .claude/skills/bmad-*/ installed"
+    fi
+
     return 0
 }
 
 # Main execution
 echo ""
 echo -e "${CYAN}╔═══════════════════════════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║              BMAD Hub Sync Tool (v6 alpha.20)             ║${NC}"
+echo -e "${CYAN}║              BMAD Hub Sync Tool (v6.2.0)                  ║${NC}"
 echo -e "${CYAN}╚═══════════════════════════════════════════════════════════╝${NC}"
 echo ""
 
@@ -905,15 +920,20 @@ for ((i=0; i<PROJECT_COUNT; i++)); do
     path=$(yq ".projects[$i].path" "$PROJECTS_FILE")
     enabled=$(yq ".projects[$i].enabled" "$PROJECTS_FILE")
     ides=$(yq ".projects[$i].ides // null" "$PROJECTS_FILE")
+    # Read modules list as space-separated string
+    modules=$(yq ".projects[$i].modules // null" "$PROJECTS_FILE")
+    if [[ "$modules" != "null" ]]; then
+        modules=$(yq ".projects[$i].modules[]" "$PROJECTS_FILE" 2>/dev/null | tr '\n' ' ' | sed 's/ $//')
+    fi
 
     # If specific project requested, only sync that one
     if [[ -n "$SPECIFIC_PROJECT" ]]; then
         if [[ "$name" == "$SPECIFIC_PROJECT" ]]; then
             current_ver=$(detect_bmad_version "$path")
-            if sync_project "$name" "$path" "$ides"; then
+            if sync_project "$name" "$path" "$ides" "$modules"; then
                 ((SYNCED++))
                 [[ "$current_ver" == "alpha15"* ]] && ((MIGRATED++))
-                # Update lastSynced timestamp
+                [[ "$current_ver" == "alpha20-commands" ]] && ((MIGRATED++))
                 if [[ "$DRY_RUN" != "true" ]]; then
                     update_project_last_synced "$i"
                 fi
@@ -941,10 +961,10 @@ for ((i=0; i<PROJECT_COUNT; i++)); do
 
     # Sync the project
     current_ver=$(detect_bmad_version "$path")
-    if sync_project "$name" "$path" "$ides"; then
+    if sync_project "$name" "$path" "$ides" "$modules"; then
         ((SYNCED++))
         [[ "$current_ver" == "alpha15"* ]] && ((MIGRATED++))
-        # Update lastSynced timestamp
+        [[ "$current_ver" == "alpha20-commands" ]] && ((MIGRATED++))
         if [[ "$DRY_RUN" != "true" ]]; then
             update_project_last_synced "$i"
         fi
@@ -981,7 +1001,7 @@ if [[ "$FORCE_SYNC" == "true" ]]; then
 fi
 
 if [[ $MIGRATED -gt 0 ]] && [[ "$DRY_RUN" != "true" ]]; then
-    echo -e "${MAGENTA}Note: $MIGRATED project(s) were migrated from alpha.15 to alpha.20${NC}"
+    echo -e "${MAGENTA}Note: $MIGRATED project(s) were migrated to v6.2 skills format${NC}"
     echo "Check _bmad-backup/ in each project for the original files."
 fi
 
