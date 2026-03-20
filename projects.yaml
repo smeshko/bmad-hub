@@ -29,6 +29,7 @@ projects:
   #   modules:            # Optional: defaults to core + bmm
   #     - core
   #     - bmm
+  #     - cis
   #     - tea
   #   lastSynced: null    # Auto-updated after sync
   #   ides:
@@ -84,7 +85,12 @@ projects:
     path: /Users/A1E6E98/Developer/Projects/kris-extractor/project-scalpel
     enabled: true
     description: Project Scalpel App
-    lastSynced: "2026-02-04T13:40:19Z"
+    modules:
+      - core
+      - bmm
+      - cis
+      - tea
+    lastSynced: "2026-03-20T19:40:53Z"
   # Future Ideas
   - name: future-ideas
     path: /Users/A1E6E98/Developer/future-ideas
@@ -94,6 +100,7 @@ projects:
       - core
       - bmm
       - cis
+    lastSynced: "2026-03-19T21:30:12Z"
 # Hub configuration
 hub:
   # Files/folders to exclude from sync (in addition to hub-specific files)
